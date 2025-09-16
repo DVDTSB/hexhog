@@ -97,8 +97,7 @@ impl App {
         frame.render_widget(title, layout[0]);
 
         let status_text = format!(
-            " q - quit │ line: {} │ cursor: {},{} │ size: {} bytes ",
-            self.starting_line,
+            " q - quit │ cursor: {},{} │ size: {} bytes ",
             self.cursor_x,
             self.cursor_y,
             self.data.len(),
@@ -129,7 +128,15 @@ impl App {
                 break;
             }
 
-            addr_text.lines.push(Line::from(format!("{:08X}", i * 16)));
+            let addr_style = if i == self.cursor_y {
+                Style::default().gray().dim()
+            } else {
+                Style::default().dark_gray()
+            };
+
+            addr_text
+                .lines
+                .push(Line::from(format!("{:08X}", i * 16).set_style(addr_style)));
 
             let mut hex_line = Vec::new();
             let mut ascii_line = Vec::new();
