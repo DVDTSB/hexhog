@@ -1,0 +1,13 @@
+[package]
+name = "hexhog"
+version = "0.1.0"
+description = "hex viewer/editor"
+authors = ["deved <>"]
+license = "MIT"
+edition = "2024"
+
+[dependencies]
+crossterm = "0.28.1"
+ratatui = "0.29.0"
+color-eyre = "0.6.3"
+clap = {version = "4.5.47", features=["derive"]}
