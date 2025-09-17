@@ -42,8 +42,9 @@ pub struct App {
     frame_height: u32,
     running: bool,
     state: AppState,
-    buffer: [char; 2],
-    changes: Vec<Change>,
+    buffer: [char; 2],         //used for editing a byte
+    changes: Vec<Change>,      //undos
+    made_changes: Vec<Change>, //redos
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -85,6 +86,7 @@ impl App {
             state: AppState::Move,
             buffer: [' ', ' '],
             changes: Vec::new(),
+            made_changes: Vec::new(),
         }
     }
 
@@ -226,7 +228,7 @@ impl App {
         frame.render_widget(Paragraph::new(ascii_text), columns[2]);
 
         if self.state == AppState::Help {
-            let popup = Paragraph::new("h - help\nq - quit\nu - undo\ns - save")
+            let popup = Paragraph::new("h - help\nq - quit\nu - undo\nU - redo\ns - save")
                 .gray()
                 .block(
                     Block::bordered()
@@ -244,7 +246,7 @@ impl App {
             let popup_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(8)])
+                .constraints(vec![Constraint::Length(9)])
                 .split(popup_layout[0]);
 
             frame.render_widget(Clear, popup_layout[0]);
@@ -274,6 +276,8 @@ impl App {
                 }
                 (KeyModifiers::NONE, KeyCode::Char('u'))
                 | (KeyModifiers::NONE, KeyCode::Char('U')) => self.undo(),
+                (KeyModifiers::SHIFT, KeyCode::Char('u'))
+                | (KeyModifiers::SHIFT, KeyCode::Char('U')) => self.redo(),
                 (_, KeyCode::Char('s')) | (_, KeyCode::Char('S')) => self.save(),
                 (_, KeyCode::Char('h')) | (_, KeyCode::Char('H')) => {
                     self.state = AppState::Help;
@@ -369,6 +373,18 @@ impl App {
         match change {
             Some(c) => {
                 self.data[c.idx] = c.old;
+                self.made_changes.push(c);
+            }
+            None => (),
+        }
+    }
+
+    fn redo(&mut self) {
+        let change = self.made_changes.pop();
+        match change {
+            Some(c) => {
+                self.data[c.idx] = c.new;
+                self.changes.push(c);
             }
             None => (),
         }
