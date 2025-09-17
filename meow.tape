@@ -64,15 +64,16 @@ Set FontSize 32
 Set Width 1600
 Set Height 800
 Set FontFamily "CaskaydiaCove NF"
+Set Theme "GitHub Dark"
 
 
 Type "hexhog 6502.bin" Sleep 500ms  Enter Sleep 100ms
 Right 5 Sleep 500ms
 Down 5 Sleep 500ms
 Type "A" Sleep 300ms
-Type "B" Sleep 1500ms
+Type "B" Sleep 500ms
 
-Type "h" Sleep 1ms
+Type "h" Sleep 1s
 
 Type " "
 
