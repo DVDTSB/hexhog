@@ -4,6 +4,20 @@ hex viewer/editor
 
 ![hexhog lol](meow.gif)
 
+To run use:
+```
+hexhog <file>
+```
+
+Current limitations:
+- loads whole file into memory
+- can't insert or create new files
+
+To do:
+- add selections
+- add copy/paste
+- add find
+
 ## License
 
 Copyright (c) dvdtsb <2025>

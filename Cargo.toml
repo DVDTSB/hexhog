@@ -2,9 +2,11 @@
 name = "hexhog"
 version = "0.1.0"
 description = "hex viewer/editor"
-authors = ["deved <>"]
+authors = ["dvdtsb"]
 license = "MIT"
 edition = "2024"
+readme-file = "README.md"
+repository = "https://github.com/DVDTSB/hexhog"
 
 [dependencies]
 crossterm = "0.28.1"
