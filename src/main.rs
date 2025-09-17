@@ -1,4 +1,8 @@
-use std::{cmp::min, fs::File, io::Read};
+use std::{
+    cmp::min,
+    fs::File,
+    io::{Read, Write},
+};
 
 use clap::Parser;
 use color_eyre::Result;
@@ -9,7 +13,7 @@ use ratatui::{
     prelude::Alignment,
     style::{Style, Styled, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Padding, Paragraph},
+    widgets::{Block, Borders, Clear, Padding, Paragraph},
 };
 
 fn main() -> Result<()> {
@@ -28,7 +32,7 @@ pub struct Args {
     file: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
     file_name: String,
     data: Vec<u8>,
@@ -37,6 +41,23 @@ pub struct App {
     cursor_y: u32,
     frame_height: u32,
     running: bool,
+    state: AppState,
+    buffer: [char; 2],
+    changes: Vec<Change>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AppState {
+    Move,
+    Edit,
+    Help,
+}
+
+#[derive(Debug)]
+pub struct Change {
+    idx: usize,
+    old: u8,
+    new: u8,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -61,6 +82,9 @@ impl App {
             cursor_x: 0,
             cursor_y: 0,
             frame_height: 0,
+            state: AppState::Move,
+            buffer: [' ', ' '],
+            changes: Vec::new(),
         }
     }
 
@@ -97,7 +121,8 @@ impl App {
         frame.render_widget(title, layout[0]);
 
         let status_text = format!(
-            " q - quit │ cursor: {},{} │ size: {} bytes ",
+            " h - help | state: {:?} │ cursor: {},{} │ size: {} bytes ",
+            self.state,
             self.cursor_x,
             self.cursor_y,
             self.data.len(),
@@ -162,9 +187,15 @@ impl App {
                     style = style.not_reversed();
                 }
 
-                hex_line.push(Span::from(
-                    format!("{:02X}", self.data[j as usize]).set_style(style),
-                ));
+                if i == self.cursor_y && j % 16 == self.cursor_x && self.state == AppState::Edit {
+                    hex_line
+                        .push(Span::from(format!("{}{}", self.buffer[0], self.buffer[1])).gray());
+                } else {
+                    hex_line.push(Span::from(
+                        format!("{:02X}", self.data[j as usize]).set_style(style),
+                    ));
+                }
+
                 if j % 16 == 7 {
                     hex_line.push("  ".into());
                 } else if j % 16 < 15 {
@@ -193,6 +224,32 @@ impl App {
             columns[1],
         );
         frame.render_widget(Paragraph::new(ascii_text), columns[2]);
+
+        if self.state == AppState::Help {
+            let popup = Paragraph::new("h - help\nq - quit\nu - undo\ns - save")
+                .gray()
+                .block(
+                    Block::bordered()
+                        .border_type(ratatui::widgets::BorderType::Rounded)
+                        .padding(Padding::uniform(1)),
+                )
+                .centered();
+
+            let popup_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .flex(Flex::Center)
+                .constraints(vec![Constraint::Length(14)])
+                .split(frame.area());
+
+            let popup_layout = Layout::default()
+                .direction(Direction::Vertical)
+                .flex(Flex::Center)
+                .constraints(vec![Constraint::Length(8)])
+                .split(popup_layout[0]);
+
+            frame.render_widget(Clear, popup_layout[0]);
+            frame.render_widget(popup, popup_layout[0]);
+        }
     }
 
     fn handle_crossterm_events(&mut self) -> Result<()> {
@@ -204,46 +261,123 @@ impl App {
     }
 
     fn on_key_event(&mut self, key: KeyEvent) {
-        match (key.modifiers, key.code) {
-            (_, KeyCode::Esc | KeyCode::Char('q'))
-            | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
-            (KeyModifiers::NONE, KeyCode::Right) => {
-                self.cursor_x += 1;
-                if self.cursor_y * 16 + self.cursor_x >= self.data.len() as u32 {
-                    self.cursor_x -= 1;
+        match self.state {
+            AppState::Move => match (key.modifiers, key.code) {
+                (_, KeyCode::Char('q')) => self.quit(),
+                (_, KeyCode::Right) => self.move_right(),
+                (_, KeyCode::Left) => self.move_left(),
+                (_, KeyCode::Up) => self.move_up(),
+                (_, KeyCode::Down) => self.move_down(),
+                (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                    self.state = AppState::Edit;
+                    self.insert_to_buffer(c);
                 }
-                if self.cursor_x >= 16 {
-                    self.cursor_x = 0;
-                    self.cursor_y += 1;
+                (KeyModifiers::NONE, KeyCode::Char('u'))
+                | (KeyModifiers::NONE, KeyCode::Char('U')) => self.undo(),
+                (_, KeyCode::Char('s')) | (_, KeyCode::Char('S')) => self.save(),
+                (_, KeyCode::Char('h')) | (_, KeyCode::Char('H')) => {
+                    self.state = AppState::Help;
                 }
-            }
-            (KeyModifiers::NONE, KeyCode::Left) => {
-                if self.cursor_x == 0 {
-                    if self.cursor_y == 0 {
-                        return;
-                    }
-                    self.cursor_x = 15;
-                    self.cursor_y = self.cursor_y.saturating_sub(1);
-                } else {
-                    self.cursor_x -= 1;
-                }
-            }
 
-            (KeyModifiers::NONE, KeyCode::Up) => {
-                self.cursor_y = self.cursor_y.saturating_sub(1);
-            }
-
-            (KeyModifiers::NONE, KeyCode::Down) => {
-                self.cursor_y += 1;
-                if self.cursor_y * 16 > self.data.len() as u32 {
-                    self.cursor_y -= 1;
+                _ => {}
+            },
+            AppState::Edit => match (key.modifiers, key.code) {
+                (_, KeyCode::Esc) => {
+                    self.state = AppState::Move;
+                    self.buffer = [' ', ' '];
                 }
+                (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                    self.insert_to_buffer(c);
+                }
+                (_, KeyCode::Backspace) => {}
+                _ => {}
+            },
+            AppState::Help => {
+                self.state = AppState::Move;
             }
-            _ => {}
         }
     }
 
     fn quit(&mut self) {
         self.running = false;
+    }
+
+    fn move_up(&mut self) {
+        self.cursor_y = self.cursor_y.saturating_sub(1);
+    }
+    fn move_down(&mut self) {
+        self.cursor_y += 1;
+        if self.cursor_y * 16 > self.data.len() as u32 {
+            self.cursor_y -= 1;
+        }
+    }
+    fn move_right(&mut self) {
+        self.cursor_x += 1;
+        if self.cursor_y * 16 + self.cursor_x >= self.data.len() as u32 {
+            self.cursor_x -= 1;
+        }
+        if self.cursor_x >= 16 {
+            self.cursor_x = 0;
+            self.cursor_y += 1;
+        }
+    }
+    fn move_left(&mut self) {
+        if self.cursor_x == 0 {
+            if self.cursor_y == 0 {
+                return;
+            }
+            self.cursor_x = 15;
+            self.cursor_y = self.cursor_y.saturating_sub(1);
+        } else {
+            self.cursor_x -= 1;
+        }
+    }
+
+    fn insert_to_buffer(&mut self, c: char) {
+        let c = c.to_ascii_uppercase();
+        if self.buffer[0] == ' ' {
+            self.buffer[0] = c;
+        } else if self.buffer[1] == ' ' {
+            self.buffer[1] = c;
+        }
+
+        if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
+            //add change
+            let mut s = String::new();
+            s.push(self.buffer[0]);
+            s.push(self.buffer[1]);
+
+            let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
+
+            let old = self.data[idx as usize];
+
+            let new = u8::from_str_radix(&s, 16).unwrap();
+
+            self.changes.push(Change { idx, old, new });
+
+            self.data[idx] = new;
+
+            self.move_right();
+
+            self.state = AppState::Move;
+            self.buffer = [' ', ' '];
+        }
+    }
+
+    fn undo(&mut self) {
+        let change = self.changes.pop();
+        match change {
+            Some(c) => {
+                self.data[c.idx] = c.old;
+            }
+            None => (),
+        }
+    }
+
+    fn save(&mut self) {
+        File::create(self.file_name.clone())
+            .unwrap()
+            .write(&self.data)
+            .unwrap();
     }
 }
