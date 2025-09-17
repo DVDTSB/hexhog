@@ -2,6 +2,8 @@
 
 hex viewer/editor
 
+![hexhog lol](meow.gif)
+
 ## License
 
 Copyright (c) dvdtsb <2025>
