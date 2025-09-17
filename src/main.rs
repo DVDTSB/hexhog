@@ -193,9 +193,7 @@ impl App {
                     hex_line
                         .push(Span::from(format!("{}{}", self.buffer[0], self.buffer[1])).gray());
                 } else {
-                    hex_line.push(Span::from(
-                        format!("{:02X}", self.data[j as usize]).set_style(style),
-                    ));
+                    hex_line.push(format!("{:02X}", self.data[j as usize]).set_style(style));
                 }
 
                 if j % 16 == 7 {
@@ -353,7 +351,7 @@ impl App {
 
             let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
 
-            let old = self.data[idx as usize];
+            let old = self.data[idx];
 
             let new = u8::from_str_radix(&s, 16).unwrap();
 
@@ -370,30 +368,24 @@ impl App {
 
     fn undo(&mut self) {
         let change = self.changes.pop();
-        match change {
-            Some(c) => {
-                self.data[c.idx] = c.old;
-                self.made_changes.push(c);
-            }
-            None => (),
+        if let Some(c) = change {
+            self.data[c.idx] = c.old;
+            self.made_changes.push(c);
         }
     }
 
     fn redo(&mut self) {
         let change = self.made_changes.pop();
-        match change {
-            Some(c) => {
-                self.data[c.idx] = c.new;
-                self.changes.push(c);
-            }
-            None => (),
+        if let Some(c) = change {
+            self.data[c.idx] = c.new;
+            self.changes.push(c);
         }
     }
 
     fn save(&mut self) {
         File::create(self.file_name.clone())
             .unwrap()
-            .write(&self.data)
+            .write_all(&self.data)
             .unwrap();
     }
 }
