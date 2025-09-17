@@ -96,11 +96,13 @@ impl App {
             terminal.draw(|frame| self.render(frame))?;
             self.handle_crossterm_events()?;
 
-            if self.cursor_y < self.starting_line {
-                self.starting_line = self.cursor_y;
+            if self.cursor_y < self.starting_line + 5 {
+                self.starting_line = self.cursor_y.saturating_sub(5);
             }
-            if self.cursor_y > self.starting_line + self.frame_height - 1 {
-                self.starting_line = self.cursor_y - self.frame_height + 1;
+            if self.cursor_y > self.starting_line + self.frame_height.saturating_sub(1 + 5) {
+                self.starting_line = self
+                    .cursor_y
+                    .saturating_sub(self.frame_height.saturating_sub(1 + 5));
             }
         }
         Ok(())
@@ -123,10 +125,9 @@ impl App {
         frame.render_widget(title, layout[0]);
 
         let status_text = format!(
-            " h - help | state: {:?} │ cursor: {},{} │ size: {} bytes ",
+            " h - help | state: {:?} │ cursor: {:08x} │ size: {} bytes ",
             self.state,
-            self.cursor_x,
-            self.cursor_y,
+            self.cursor_x + self.cursor_y * 16,
             self.data.len(),
         );
         let status = Paragraph::new(status_text)
