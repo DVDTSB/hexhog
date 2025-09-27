@@ -80,14 +80,14 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn toml_value_to_color(value: &toml::Value) -> Option<Color> {
+    pub fn toml_value_to_color(value: &toml::Value) -> Result<Color, String> {
         if let Some(s) = value.as_str() {
-            Color::from_str(s).ok()
+            Color::from_str(s).map_err(|_| "Invalid color name".into())
         } else if let Some(i) = value.as_integer() {
             if i >= 0 && i <= 255 {
-                Some(Color::Indexed(i as u8))
+                Ok(Color::Indexed(i as u8))
             } else {
-                None
+                Err("Invalid color index".into())
             }
         } else if let Some((r, g, b)) = value.as_array().and_then(|arr| {
             if arr.len() == 3 {
@@ -103,56 +103,58 @@ impl Config {
                 None
             }
         }) {
-            Some(Color::Rgb(r, g, b))
+            Ok(Color::Rgb(r, g, b))
         } else {
-            None
+            Err("Invalid color format".into())
         }
     }
 
-    pub fn read_config(path: &str) -> Self {
+    fn set_color_field(table: &Table, field: &str, current: &mut Color) -> Result<(), String> {
+        if let Some(value) = table.get(field) {
+            let color = Config::toml_value_to_color(value);
+            if color.is_err() {
+                return Err(format!(
+                    "Invalid color for field '{}' - {}",
+                    field,
+                    color.err().unwrap()
+                ));
+            } else {
+                *current = color.unwrap()
+            }
+        }
+        Ok(())
+    }
+
+    pub fn read_config(path: &str) -> Result<Self, String> {
         let mut config = Config::default();
 
         let config_file = read_to_string(path);
 
         if config_file.is_err() {
-            return config;
+            return Ok(config);
         }
 
         let values = config_file.unwrap().parse::<Table>().unwrap();
 
         if let Some(colors) = values.get("theme") {
-            if let Some(null) = colors.get("null").and_then(Config::toml_value_to_color) {
-                config.colorscheme.null = null;
-            }
-            if let Some(ascii_printable) = colors
-                .get("ascii_printable")
-                .and_then(Config::toml_value_to_color)
-            {
-                config.colorscheme.ascii_printable = ascii_printable;
-            }
-            if let Some(ascii_whitespace) = colors
-                .get("ascii_whitespace")
-                .and_then(Config::toml_value_to_color)
-            {
-                config.colorscheme.ascii_whitespace = ascii_whitespace;
-            }
-            if let Some(ascii_other) = colors
-                .get("ascii_other")
-                .and_then(Config::toml_value_to_color)
-            {
-                config.colorscheme.ascii_other = ascii_other;
-            }
-            if let Some(non_ascii) = colors
-                .get("non_ascii")
-                .and_then(Config::toml_value_to_color)
-            {
-                config.colorscheme.non_ascii = non_ascii;
-            }
-            if let Some(accent) = colors.get("accent").and_then(Config::toml_value_to_color) {
-                config.colorscheme.accent = accent;
+            if let Some(table) = colors.as_table() {
+                Config::set_color_field(table, "null", &mut config.colorscheme.null)?;
+                Config::set_color_field(
+                    table,
+                    "ascii_printable",
+                    &mut config.colorscheme.ascii_printable,
+                )?;
+                Config::set_color_field(
+                    table,
+                    "ascii_whitespace",
+                    &mut config.colorscheme.ascii_whitespace,
+                )?;
+                Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
+                Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
+                Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
             }
         }
 
-        config
+        Ok(config)
     }
 }
