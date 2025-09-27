@@ -1,11 +1,16 @@
+mod byte;
+mod config;
+
 use std::{
     cmp::min,
     fs::File,
     io::{Read, Write},
 };
 
+use byte::Byte;
 use clap::Parser;
 use color_eyre::Result;
+use config::Config;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -20,8 +25,14 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
 
+    let config_file_path = dirs::config_dir()
+        .unwrap()
+        .join("hexhog")
+        .join("config.toml");
+    let config = Config::read_config(config_file_path.to_str().unwrap());
+
     let terminal = ratatui::init();
-    let result = App::new(args).run(terminal);
+    let result = App::new(args, config).run(terminal);
     ratatui::restore();
     result
 }
@@ -32,8 +43,8 @@ pub struct Args {
     file: String,
 }
 
-#[derive(Debug)]
 pub struct App {
+    config: Config,
     file_name: String,
     data: Vec<u8>,
     starting_line: u32,
@@ -61,16 +72,8 @@ pub struct Change {
     new: u8,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum HexType {
-    Zero,
-    NotPrintable,
-    Printable,
-    NotAscii,
-}
-
 impl App {
-    pub fn new(args: Args) -> Self {
+    pub fn new(args: Args, config: Config) -> Self {
         let mut file = File::open(&args.file).unwrap();
         let mut data = Vec::new();
         file.read_to_end(&mut data).unwrap();
@@ -87,6 +90,7 @@ impl App {
             buffer: [' ', ' '],
             changes: Vec::new(),
             made_changes: Vec::new(),
+            config: config,
         }
     }
 
@@ -120,19 +124,18 @@ impl App {
 
         let title = Paragraph::new(format!(" hexhog ─ {} ", self.file_name))
             .alignment(Alignment::Center)
-            .bold()
-            .blue();
+            .fg(self.config.colorscheme.accent);
         frame.render_widget(title, layout[0]);
 
         let status_text = format!(
-            " h - help | state: {:?} │ cursor: {:08x} │ size: {} bytes ",
+            " h - help | state: {:?} │ cursor: {:08X} │ size: {} bytes ",
             self.state,
             self.cursor_x + self.cursor_y * 16,
             self.data.len(),
         );
         let status = Paragraph::new(status_text)
             .alignment(Alignment::Center)
-            .blue();
+            .fg(self.config.colorscheme.accent);
         frame.render_widget(status, layout[2]);
 
         let columns = Layout::default()
@@ -170,44 +173,33 @@ impl App {
             let mut ascii_line = Vec::new();
 
             for j in (i * 16)..min(i * 16 + 16, self.data.len() as u32) {
-                let hextype = match self.data[j as usize] {
-                    0x00 => HexType::Zero,
-                    b if b.is_ascii_graphic() => HexType::Printable,
-                    b if b.is_ascii() => HexType::NotPrintable,
-                    _ => HexType::NotAscii,
-                };
+                let byte = Byte::new(self.data[j as usize]);
 
-                let mut style = match hextype {
-                    HexType::Zero => Style::default().dark_gray(),
-                    HexType::NotPrintable => Style::default().blue(),
-                    HexType::Printable => Style::default().cyan(),
-                    HexType::NotAscii => Style::default().yellow(),
-                };
+                let mut style = byte.get_style(&self.config);
 
+                // reverse if cursor is here
                 if i == self.cursor_y && j % 16 == self.cursor_x {
                     style = style.reversed();
                 } else {
                     style = style.not_reversed();
                 }
 
+                // if editing
                 if i == self.cursor_y && j % 16 == self.cursor_x && self.state == AppState::Edit {
                     hex_line
                         .push(Span::from(format!("{}{}", self.buffer[0], self.buffer[1])).gray());
                 } else {
-                    hex_line.push(format!("{:02X}", self.data[j as usize]).set_style(style));
+                    hex_line.push(byte.get_hex().set_style(style));
                 }
 
+                // space between columns
                 if j % 16 == 7 {
                     hex_line.push("  ".into());
                 } else if j % 16 < 15 {
                     hex_line.push(" ".into());
                 }
 
-                let ch = match hextype {
-                    HexType::Zero => '0',
-                    HexType::Printable => self.data[j as usize] as char,
-                    _ => '.',
-                };
+                let ch = byte.get_char(&self.config);
                 ascii_line.push(Span::from(ch.to_string()).set_style(style));
             }
 
