@@ -29,10 +29,16 @@ fn main() -> Result<()> {
         .unwrap()
         .join("hexhog")
         .join("config.toml");
-    let config = Config::read_config(config_file_path.to_str().unwrap());
 
+    let config = Config::read_config(config_file_path.to_str().unwrap()).unwrap_or_else(|e| {
+        eprintln!("Error reading config: {e}");
+        eprintln!("Using default config");
+        Config::default()
+    });
+
+    let app = App::new(args, config)?;
     let terminal = ratatui::init();
-    let result = App::new(args, config).run(terminal);
+    let result = app.run(terminal);
     ratatui::restore();
     result
 }
@@ -73,12 +79,12 @@ pub struct Change {
 }
 
 impl App {
-    pub fn new(args: Args, config: Config) -> Self {
-        let mut file = File::open(&args.file).unwrap();
+    pub fn new(args: Args, config: Config) -> Result<Self> {
+        let mut file = File::open(&args.file)?;
         let mut data = Vec::new();
-        file.read_to_end(&mut data).unwrap();
+        file.read_to_end(&mut data)?;
 
-        Self {
+        Ok(Self {
             file_name: args.file,
             running: true,
             data,
@@ -91,7 +97,7 @@ impl App {
             changes: Vec::new(),
             made_changes: Vec::new(),
             config: config,
-        }
+        })
     }
 
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
