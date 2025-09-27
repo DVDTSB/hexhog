@@ -1,6 +1,6 @@
 # hexhog
 
-hex viewer/editor
+configurable hex viewer/editor
 
 ![hexhog lol](meow.gif)
 
@@ -17,6 +17,30 @@ To do:
 - add selections
 - add copy/paste
 - add find
+
+## Configuration
+
+Configuration file is located at:
+- Linux: `/home/user/.config/hexhog/config.toml`
+- Windows: `C:\Users\user\AppData\Roaming\hexhog\config.toml`
+- MacOS: `/Users/user/Library/Application Support/hexhog/config.toml`
+
+An example configuration file:
+```toml
+[theme]
+null = "dark_gray"
+ascii_printable = "blue"
+ascii_whitespace = [67, 205, 128] # rgb
+ascii_other = 162 # ansi
+non_ascii = "red"
+accent = "blue"
+
+[charset]
+null = "."
+ascii_whitespace = "·"
+ascii_other = "°"
+non_ascii = "×"
+```
 
 ## License
 
