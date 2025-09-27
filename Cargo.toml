@@ -9,7 +9,7 @@ readme-file = "README.md"
 repository = "https://github.com/DVDTSB/hexhog"
 
 [dependencies]
-crossterm = "0.28.1"
+crossterm = "0.29.0"
 ratatui = "0.29.0"
 color-eyre = "0.6.3"
 clap = { version = "4.5.47", features = ["derive"] }
