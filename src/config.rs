@@ -25,30 +25,22 @@ impl ColorScheme {
     }
 }
 
-pub struct BasicCharset {
-    null: char,
-    ascii_whitespace: char,
-    ascii_other: char,
-    non_ascii: char,
-}
-
-pub enum Charset {
-    Basic(BasicCharset),
-    Custom([char; 256]),
+pub struct Charset {
+    pub null: char,
+    pub ascii_whitespace: char,
+    pub ascii_other: char,
+    pub non_ascii: char,
 }
 
 impl Charset {
     pub fn get_char(&self, byte: &Byte) -> char {
-        match self {
-            Charset::Basic(basic) => match byte.get_bytetype() {
-                ByteType::Null => basic.null,
-                ByteType::AsciiPrintable => byte.value() as char,
-                ByteType::AsciiWhitespace if byte.value() as char == ' ' => ' ',
-                ByteType::AsciiWhitespace => basic.ascii_whitespace,
-                ByteType::AsciiOther => basic.ascii_other,
-                ByteType::NonAscii => basic.non_ascii,
-            },
-            Charset::Custom(array) => array[byte.value() as usize],
+        match byte.get_bytetype() {
+            ByteType::Null => self.null,
+            ByteType::AsciiPrintable => byte.value() as char,
+            ByteType::AsciiWhitespace if byte.value() as char == ' ' => ' ',
+            ByteType::AsciiWhitespace => self.ascii_whitespace,
+            ByteType::AsciiOther => self.ascii_other,
+            ByteType::NonAscii => self.non_ascii,
         }
     }
 }
@@ -69,12 +61,12 @@ impl Default for Config {
                 non_ascii: Color::Yellow,
                 accent: Color::Blue,
             },
-            charset: Charset::Basic(BasicCharset {
+            charset: Charset {
                 null: '.',
                 ascii_whitespace: '·',
                 ascii_other: '°',
                 non_ascii: '×',
-            }),
+            },
         }
     }
 }
@@ -125,6 +117,26 @@ impl Config {
         Ok(())
     }
 
+    fn set_charset_field(table: &Table, field: &str, current: &mut char) -> Result<(), String> {
+        if let Some(value) = table.get(field) {
+            if let Some(s) = value.as_str() {
+                let mut chars = s.chars();
+                if let Some(c) = chars.next() {
+                    if chars.next().is_none() {
+                        *current = c;
+                    } else {
+                        return Err(format!("Field '{}' must be a single character", field));
+                    }
+                } else {
+                    return Err(format!("Field '{}' cannot be empty", field));
+                }
+            } else {
+                return Err(format!("Field '{}' must be a string", field));
+            }
+        }
+        Ok(())
+    }
+
     pub fn read_config(path: &str) -> Result<Self, String> {
         let mut config = Config::default();
 
@@ -152,6 +164,20 @@ impl Config {
                 Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
                 Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
                 Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
+            }
+        }
+
+        if let Some(charset) = values.get("charset") {
+            if let Some(table) = charset.as_table() {
+                Config::set_charset_field(table, "null", &mut config.charset.null)?;
+                Config::set_charset_field(
+                    table,
+                    "ascii_whitespace",
+                    &mut config.charset.ascii_whitespace,
+                )?;
+                Config::set_charset_field(table, "ascii_other", &mut config.charset.ascii_other)?;
+                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
+                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
             }
         }
 
