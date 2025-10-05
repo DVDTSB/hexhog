@@ -68,14 +68,15 @@ pub struct App {
 pub enum AppState {
     Move,
     Edit,
+    Insert,
     Help,
 }
 
 #[derive(Debug)]
-pub struct Change {
-    idx: usize,
-    old: u8,
-    new: u8,
+pub enum Change {
+    Edit(usize, u8, u8),
+    Insert(usize, u8),
+    Delete(usize, u8),
 }
 
 impl App {
@@ -160,6 +161,8 @@ impl App {
         let mut hex_text = Text::default();
         let mut ascii_text = Text::default();
 
+        let mut offset = 0;
+
         for i in self.starting_line..(self.starting_line + layout[1].height as u32) {
             if i * 16 >= self.data.len() as u32 {
                 break;
@@ -179,29 +182,40 @@ impl App {
             let mut ascii_line = Vec::new();
 
             for j in (i * 16)..min(i * 16 + 16, self.data.len() as u32) {
-                let byte = Byte::new(self.data[j as usize]);
+                let j_pos = j;
+                let j_idx = j - offset;
+
+                let byte = Byte::new(self.data[j_idx as usize]);
 
                 let mut style = byte.get_style(&self.config);
 
                 // reverse if cursor is here
-                if i == self.cursor_y && j % 16 == self.cursor_x {
+                if i == self.cursor_y && j_pos % 16 == self.cursor_x {
                     style = style.reversed();
                 } else {
                     style = style.not_reversed();
                 }
 
                 // if editing
-                if i == self.cursor_y && j % 16 == self.cursor_x && self.state == AppState::Edit {
-                    hex_line
-                        .push(Span::from(format!("{}{}", self.buffer[0], self.buffer[1])).gray());
+                if i == self.cursor_y
+                    && j % 16 == self.cursor_x
+                    && (self.state == AppState::Edit || self.state == AppState::Insert)
+                    && offset == 0
+                {
+                    hex_line.push(
+                        Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
+                            .black()
+                            .on_white(),
+                    );
+                    offset = (self.state == AppState::Insert) as u32;
                 } else {
                     hex_line.push(byte.get_hex().set_style(style));
                 }
 
                 // space between columns
-                if j % 16 == 7 {
+                if j_pos % 16 == 7 {
                     hex_line.push("  ".into());
-                } else if j % 16 < 15 {
+                } else if j_pos % 16 < 15 {
                     hex_line.push(" ".into());
                 }
 
@@ -224,26 +238,28 @@ impl App {
         );
         frame.render_widget(Paragraph::new(ascii_text), columns[2]);
 
+        // render help popup
         if self.state == AppState::Help {
-            let popup = Paragraph::new("h - help\nq - quit\nu - undo\nU - redo\ns - save")
-                .gray()
-                .block(
-                    Block::bordered()
-                        .border_type(ratatui::widgets::BorderType::Rounded)
-                        .padding(Padding::uniform(1)),
-                )
-                .centered();
+            let popup =
+                Paragraph::new("h - help\nq - quit\ni - insert\nu - undo\nU - redo\ns - save")
+                    .gray()
+                    .block(
+                        Block::bordered()
+                            .border_type(ratatui::widgets::BorderType::Rounded)
+                            .padding(Padding::uniform(1)),
+                    )
+                    .centered();
 
             let popup_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(14)])
+                .constraints(vec![Constraint::Length(16)])
                 .split(frame.area());
 
             let popup_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(9)])
+                .constraints(vec![Constraint::Length(10)])
                 .split(popup_layout[0]);
 
             frame.render_widget(Clear, popup_layout[0]);
@@ -267,10 +283,14 @@ impl App {
                 (_, KeyCode::Left) => self.move_left(),
                 (_, KeyCode::Up) => self.move_up(),
                 (_, KeyCode::Down) => self.move_down(),
-                (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.state = AppState::Edit;
                     self.insert_to_buffer(c);
                 }
+                (_, KeyCode::Char('i')) => {
+                    self.state = AppState::Insert;
+                }
+
                 (KeyModifiers::NONE, KeyCode::Char('u'))
                 | (KeyModifiers::NONE, KeyCode::Char('U')) => self.undo(),
                 (KeyModifiers::SHIFT, KeyCode::Char('u'))
@@ -289,6 +309,35 @@ impl App {
                 }
                 (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.insert_to_buffer(c);
+                    if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
+                        self.state = AppState::Move;
+                        let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
+                        let old = self.data[idx];
+                        let new = self.buffer_to_u8();
+                        self.data[idx] = new;
+                        self.buffer = [' ', ' '];
+                        self.changes.push(Change::Edit(idx, old, new))
+                    }
+                }
+                (_, KeyCode::Backspace) => {}
+                _ => {}
+            },
+            AppState::Insert => match (key.modifiers, key.code) {
+                (_, KeyCode::Esc) => {
+                    self.state = AppState::Move;
+                    self.buffer = [' ', ' '];
+                }
+                (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                    self.insert_to_buffer(c);
+
+                    if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
+                        self.state = AppState::Move;
+                        let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
+                        let new = self.buffer_to_u8();
+                        self.data.insert(idx, new);
+                        self.buffer = [' ', ' '];
+                        self.changes.push(Change::Insert(idx, new))
+                    }
                 }
                 (_, KeyCode::Backspace) => {}
                 _ => {}
@@ -341,43 +390,46 @@ impl App {
         } else if self.buffer[1] == ' ' {
             self.buffer[1] = c;
         }
+    }
 
-        if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
-            //add change
-            let mut s = String::new();
-            s.push(self.buffer[0]);
-            s.push(self.buffer[1]);
-
-            let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
-
-            let old = self.data[idx];
-
-            let new = u8::from_str_radix(&s, 16).unwrap();
-
-            self.changes.push(Change { idx, old, new });
-
-            self.data[idx] = new;
-
-            self.move_right();
-
-            self.state = AppState::Move;
-            self.buffer = [' ', ' '];
-        }
+    fn buffer_to_u8(&self) -> u8 {
+        let mut s = String::new();
+        s.push(self.buffer[0]);
+        s.push(self.buffer[1]);
+        u8::from_str_radix(&s, 16).unwrap()
     }
 
     fn undo(&mut self) {
         let change = self.changes.pop();
         if let Some(c) = change {
-            self.data[c.idx] = c.old;
-            self.made_changes.push(c);
+            match c {
+                Change::Edit(idx, old, _) => {
+                    self.data[idx] = old;
+                }
+                Change::Insert(idx, _) => {
+                    self.data.remove(idx);
+                }
+                Change::Delete(idx, a) => {
+                    self.data.insert(idx, a);
+                }
+            }
         }
     }
 
     fn redo(&mut self) {
         let change = self.made_changes.pop();
         if let Some(c) = change {
-            self.data[c.idx] = c.new;
-            self.changes.push(c);
+            match c {
+                Change::Edit(idx, _, new) => {
+                    self.data[idx] = new;
+                }
+                Change::Insert(idx, u8) => {
+                    self.data.insert(idx, u8);
+                }
+                Change::Delete(idx, _) => {
+                    self.data.remove(idx);
+                }
+            }
         }
     }
 
