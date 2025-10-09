@@ -11,12 +11,18 @@ hexhog <file>
 
 Current limitations:
 - loads whole file into memory
-- can't insert or create new files
 
 To do:
 - add selections
 - add copy/paste
 - add find
+
+## Instalation
+If you have cargo installed, just run:
+```
+cargo install hexhog
+```
+I hope I can make this tool available on other package managers soon.
 
 ## Configuration
 
@@ -34,6 +40,9 @@ ascii_whitespace = [67, 205, 128] # rgb
 ascii_other = 162 # ansi
 non_ascii = "red"
 accent = "blue"
+primary = "green"
+background = "black"
+border = "cyan"
 
 [charset]
 null = "."
