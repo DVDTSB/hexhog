@@ -97,7 +97,7 @@ impl App {
             buffer: [' ', ' '],
             changes: Vec::new(),
             made_changes: Vec::new(),
-            config: config,
+            config,
         })
     }
 
@@ -120,6 +120,14 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) {
+        let area = frame.area().clone();
+        let buffer = frame.buffer_mut();
+
+        buffer.set_style(
+            area,
+            Style::default().bg(self.config.colorscheme.background),
+        );
+
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -169,9 +177,9 @@ impl App {
             }
 
             let addr_style = if i == self.cursor_y {
-                Style::default().gray().dim()
+                Style::default().fg(self.config.colorscheme.primary)
             } else {
-                Style::default().dark_gray()
+                Style::default().fg(self.config.colorscheme.primary).dim()
             };
 
             addr_text
@@ -204,8 +212,8 @@ impl App {
                 {
                     hex_line.push(
                         Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
-                            .black()
-                            .on_white(),
+                            .fg(self.config.colorscheme.primary)
+                            .reversed(),
                     );
                     offset = (self.state == AppState::Insert) as u32;
                 } else {
@@ -232,6 +240,7 @@ impl App {
             Paragraph::new(hex_text).block(
                 Block::new()
                     .borders(Borders::LEFT | Borders::RIGHT)
+                    .border_style(Style::default().fg(self.config.colorscheme.border))
                     .padding(Padding::horizontal(1)),
             ),
             columns[1],
@@ -242,10 +251,11 @@ impl App {
         if self.state == AppState::Help {
             let popup =
                 Paragraph::new("h - help\nq - quit\ni - insert\nu - undo\nU - redo\ns - save")
-                    .gray()
+                    .fg(self.config.colorscheme.primary)
                     .block(
                         Block::bordered()
                             .border_type(ratatui::widgets::BorderType::Rounded)
+                            .fg(self.config.colorscheme.primary)
                             .padding(Padding::uniform(1)),
                     )
                     .centered();
@@ -263,6 +273,12 @@ impl App {
                 .split(popup_layout[0]);
 
             frame.render_widget(Clear, popup_layout[0]);
+
+            let buffer = frame.buffer_mut();
+            buffer.set_style(
+                popup_layout[0],
+                Style::default().bg(self.config.colorscheme.background),
+            );
             frame.render_widget(popup, popup_layout[0]);
         }
     }

@@ -22,7 +22,7 @@ impl Byte {
         self.0
     }
 
-    pub fn get_bytetype(&self) -> ByteType {
+    pub fn get_bytetype(self) -> ByteType {
         match self.0 {
             0 => ByteType::Null,
             c if c.is_ascii_graphic() => ByteType::AsciiPrintable,
@@ -32,11 +32,11 @@ impl Byte {
         }
     }
 
-    pub fn get_hex(&self) -> String {
+    pub fn get_hex(self) -> String {
         format!("{:02X}", self.0)
     }
 
-    pub fn get_char(&self, config: &Config) -> char {
+    pub fn get_char(self, config: &Config) -> char {
         config.charset.get_char(&self)
     }
 
