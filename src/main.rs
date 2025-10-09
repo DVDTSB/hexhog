@@ -2,7 +2,6 @@ mod byte;
 mod config;
 
 use std::{
-    cmp::min,
     fs::File,
     io::{Read, Write},
     path::Path,
@@ -176,8 +175,9 @@ impl App {
 
         let mut offset = 0;
 
-        for i in self.starting_line..(self.starting_line + layout[1].height as u32) {
-            if i * 16 >= self.data.len() as u32 {
+        for i in self.starting_line..self.starting_line + layout[1].height as u32 {
+            let row_start = i * 16;
+            if row_start >= self.data.len() as u32 {
                 break;
             }
 
@@ -189,51 +189,53 @@ impl App {
 
             addr_text
                 .lines
-                .push(Line::from(format!("{:08X}", i * 16).set_style(addr_style)));
+                .push(Line::from(format!("{row_start:08X}").set_style(addr_style)));
 
             let mut hex_line = Vec::new();
             let mut ascii_line = Vec::new();
 
-            for j in (i * 16)..min(i * 16 + 16, self.data.len() as u32) {
-                let j_pos = j;
-                let j_idx = j - offset;
-
-                let byte = Byte::new(self.data[j_idx as usize]);
-
-                let mut style = byte.get_style(&self.config);
-
-                // reverse if cursor is here
-                if i == self.cursor_y && j_pos % 16 == self.cursor_x {
-                    style = style.reversed();
-                } else {
-                    style = style.not_reversed();
+            for j in 0..16 {
+                let pos = row_start + j;
+                if pos > self.data.len() as u32 {
+                    break;
                 }
 
-                // if editing
-                if i == self.cursor_y
-                    && j % 16 == self.cursor_x
-                    && (self.state == AppState::Edit || self.state == AppState::Insert)
-                    && offset == 0
-                {
-                    hex_line.push(
-                        Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
-                            .fg(self.config.colorscheme.primary)
-                            .reversed(),
-                    );
+                let cursor_here = i == self.cursor_y && j == self.cursor_x;
+                let editing =
+                    matches!(self.state, AppState::Edit | AppState::Insert) && cursor_here;
+
+                let span = if editing && offset == 0 {
                     offset = (self.state == AppState::Insert) as u32;
+                    Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
+                        .fg(self.config.colorscheme.primary)
+                        .reversed()
+                } else if pos < self.data.len() as u32 {
+                    let byte = Byte::new(self.data[(pos - offset) as usize]);
+                    let mut style = byte.get_style(&self.config);
+                    style = if cursor_here {
+                        style.reversed()
+                    } else {
+                        style.not_reversed()
+                    };
+                    ascii_line
+                        .push(Span::from(byte.get_char(&self.config).to_string()).set_style(style));
+                    byte.get_hex().set_style(style)
+                } else if cursor_here {
+                    Span::from("  ")
+                        .fg(self.config.colorscheme.primary)
+                        .reversed()
                 } else {
-                    hex_line.push(byte.get_hex().set_style(style));
-                }
+                    continue;
+                };
 
-                // space between columns
-                if j_pos % 16 == 7 {
+                hex_line.push(span);
+
+                // spacing
+                if j == 7 {
                     hex_line.push("  ".into());
-                } else if j_pos % 16 < 15 {
+                } else if j < 15 {
                     hex_line.push(" ".into());
                 }
-
-                let ch = byte.get_char(&self.config);
-                ascii_line.push(Span::from(ch.to_string()).set_style(style));
             }
 
             hex_text.lines.push(Line::from(hex_line));
@@ -333,11 +335,16 @@ impl App {
                     if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
                         self.state = AppState::Move;
                         let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
-                        let old = self.data[idx];
                         let new = self.buffer_to_u8();
-                        self.data[idx] = new;
+                        if idx >= self.data.len() {
+                            self.data.push(new);
+                            self.move_right();
+                        } else {
+                            let old = self.data[idx];
+                            self.data[idx] = new;
+                            self.changes.push(Change::Edit(idx, old, new))
+                        }
                         self.buffer = [' ', ' '];
-                        self.changes.push(Change::Edit(idx, old, new))
                     }
                 }
                 (_, KeyCode::Backspace) => {}
@@ -384,7 +391,7 @@ impl App {
     }
     fn move_right(&mut self) {
         self.cursor_x += 1;
-        if self.cursor_y * 16 + self.cursor_x >= self.data.len() as u32 {
+        if self.cursor_y * 16 + self.cursor_x >= self.data.len() as u32 + 1 {
             self.cursor_x -= 1;
         }
         if self.cursor_x >= 16 {
