@@ -120,7 +120,7 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) {
-        let area = frame.area().clone();
+        let area = frame.area();
         let buffer = frame.buffer_mut();
 
         buffer.set_style(
