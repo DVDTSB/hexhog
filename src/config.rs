@@ -11,6 +11,9 @@ pub struct ColorScheme {
     pub ascii_other: Color,
     pub non_ascii: Color,
     pub accent: Color,
+    pub primary: Color,
+    pub border: Color,
+    pub background: Color,
 }
 
 impl ColorScheme {
@@ -56,10 +59,13 @@ impl Default for Config {
             colorscheme: ColorScheme {
                 null: Color::DarkGray,
                 ascii_printable: Color::Blue,
-                ascii_whitespace: Color::Green,
-                ascii_other: Color::Green,
-                non_ascii: Color::Yellow,
+                ascii_whitespace: Color::Cyan,
+                ascii_other: Color::Yellow,
+                non_ascii: Color::Green,
                 accent: Color::Blue,
+                border: Color::White,
+                primary: Color::White,
+                background: Color::Reset,
             },
             charset: Charset {
                 null: '.',
@@ -76,7 +82,7 @@ impl Config {
         if let Some(s) = value.as_str() {
             Color::from_str(s).map_err(|_| "Invalid color name".into())
         } else if let Some(i) = value.as_integer() {
-            if i >= 0 && i <= 255 {
+            if (0..=255).contains(&i) {
                 Ok(Color::Indexed(i as u8))
             } else {
                 Err("Invalid color index".into())
@@ -125,13 +131,13 @@ impl Config {
                     if chars.next().is_none() {
                         *current = c;
                     } else {
-                        return Err(format!("Field '{}' must be a single character", field));
+                        return Err(format!("Field '{field}' must be a single character"));
                     }
                 } else {
-                    return Err(format!("Field '{}' cannot be empty", field));
+                    return Err(format!("Field '{field}' cannot be empty"));
                 }
             } else {
-                return Err(format!("Field '{}' must be a string", field));
+                return Err(format!("Field '{field}' must be a string"));
             }
         }
         Ok(())
@@ -164,6 +170,9 @@ impl Config {
                 Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
                 Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
                 Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
+                Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
+                Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
+                Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
             }
         }
 
