@@ -5,6 +5,7 @@ use std::{
     cmp::min,
     fs::File,
     io::{Read, Write},
+    path::Path,
 };
 
 use byte::Byte;
@@ -81,9 +82,13 @@ pub enum Change {
 
 impl App {
     pub fn new(args: Args, config: Config) -> Result<Self> {
-        let mut file = File::open(&args.file)?;
+        let path = Path::new(&args.file);
         let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
+
+        if path.exists() {
+            let mut file = File::open(&args.file)?;
+            file.read_to_end(&mut data)?;
+        }
 
         Ok(Self {
             file_name: args.file,
