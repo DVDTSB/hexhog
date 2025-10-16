@@ -306,6 +306,8 @@ impl App {
                 (_, KeyCode::Left) => self.move_left(),
                 (_, KeyCode::Up) => self.move_up(),
                 (_, KeyCode::Down) => self.move_down(),
+                (_, KeyCode::PageUp) => self.move_page_up(),
+                (_, KeyCode::PageDown) => self.move_page_down(),
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.state = AppState::Edit;
                     self.insert_to_buffer(c);
@@ -387,6 +389,15 @@ impl App {
         self.cursor_y += 1;
         if self.cursor_y * 16 > self.data.len() as u32 {
             self.cursor_y -= 1;
+        }
+    }
+    fn move_page_up(&mut self) {
+        self.cursor_y = self.cursor_y.saturating_sub(self.frame_height);
+    }
+    fn move_page_down(&mut self) {
+        self.cursor_y += self.frame_height;
+        if self.cursor_y * 16 > self.data.len() as u32 {
+            self.cursor_y -= self.frame_height;
         }
     }
     fn move_right(&mut self) {
