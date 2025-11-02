@@ -62,13 +62,13 @@ pub struct App {
     buffer: [char; 2],         //used for editing a byte
     changes: Vec<Change>,      //undos
     made_changes: Vec<Change>, //redos
+    is_inserting: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppState {
     Move,
     Edit,
-    Insert,
     Help,
 }
 
@@ -102,6 +102,7 @@ impl App {
             changes: Vec::new(),
             made_changes: Vec::new(),
             config,
+            is_inserting: false,
         })
     }
 
@@ -196,22 +197,21 @@ impl App {
             let mut ascii_line = Vec::new();
 
             for j in 0..16 {
-                let pos = row_start + j;
-                if pos > self.data.len() as u32 {
+                let pos = row_start + j-offset;
+                if pos> self.data.len() as u32 {
                     break;
                 }
 
                 let cursor_here = i == self.cursor_y && j == self.cursor_x;
-                let editing =
-                    matches!(self.state, AppState::Edit | AppState::Insert) && cursor_here;
+                let editing = matches!(self.state, AppState::Edit) && cursor_here;
 
                 let span = if editing && offset == 0 {
-                    offset = (self.state == AppState::Insert) as u32;
+                    offset = self.is_inserting as u32;
                     Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
                         .fg(self.config.colorscheme.primary)
                         .reversed()
                 } else if pos < self.data.len() as u32 {
-                    let byte = Byte::new(self.data[(pos - offset) as usize]);
+                    let byte = Byte::new(self.data[pos as usize]);
                     let mut style = byte.get_style(&self.config);
                     style = if cursor_here {
                         style.reversed()
@@ -323,10 +323,23 @@ pgup,pgdn - move screen
                 }
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.state = AppState::Edit;
+                    self.is_inserting = false;
                     self.insert_to_buffer(c);
-                }
+                },
+                
+                /*
+                //i really wanna do this but for some reason it doesnt work with numbers
+                // for later!
+                (KeyModifiers::SHIFT, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                    self.state = AppState::Edit;
+                    self.is_inserting = true;
+                    self.insert_to_buffer(c);
+                },
+                */
+
                 (_, KeyCode::Char('i')) => {
-                    self.state = AppState::Insert;
+                    self.state = AppState::Edit;
+                    self.is_inserting = true;
                 }
 
                 (KeyModifiers::NONE, KeyCode::Char('u'))
@@ -351,35 +364,22 @@ pgup,pgdn - move screen
                         self.state = AppState::Move;
                         let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
                         let new = self.buffer_to_u8();
-                        if idx >= self.data.len() {
-                            self.data.push(new);
-                            self.move_right();
+
+                        if self.is_inserting {
+                            self.data.insert(idx, new);
+                            self.changes.push(Change::Insert(idx, new));
                         } else {
-                            let old = self.data[idx];
-                            self.data[idx] = new;
-                            self.changes.push(Change::Edit(idx, old, new))
+                            if idx >= self.data.len() {
+                                self.data.push(new);
+                                self.move_right();
+                            } else {
+                                let old = self.data[idx];
+                                self.data[idx] = new;
+                                self.changes.push(Change::Edit(idx, old, new))
+                            }
                         }
                         self.buffer = [' ', ' '];
-                    }
-                }
-                (_, KeyCode::Backspace) => {}
-                _ => {}
-            },
-            AppState::Insert => match (key.modifiers, key.code) {
-                (_, KeyCode::Esc) => {
-                    self.state = AppState::Move;
-                    self.buffer = [' ', ' '];
-                }
-                (_, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
-                    self.insert_to_buffer(c);
-
-                    if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
-                        self.state = AppState::Move;
-                        let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
-                        let new = self.buffer_to_u8();
-                        self.data.insert(idx, new);
-                        self.buffer = [' ', ' '];
-                        self.changes.push(Change::Insert(idx, new))
+                        self.is_inserting=false; 
                     }
                 }
                 (_, KeyCode::Backspace) => {}
