@@ -177,8 +177,8 @@ impl App {
 
         for i in self.starting_line..self.starting_line + layout[1].height as u32 {
             let row_start = i * 16;
-            
-            if row_start > self.data.len() as u32{
+
+            if row_start > self.data.len() as u32 {
                 break;
             }
 
@@ -257,21 +257,22 @@ impl App {
 
         // render help popup
         if self.state == AppState::Help {
-            let popup =
-                Paragraph::new("h - help       u - undo
+            let popup = Paragraph::new(
+                "h - help       u - undo
 q - quit       U - redo
 i - insert     s - save
 backspace - delete byte
 pgup,pgdn - move screen
-")
+",
+            )
+            .fg(self.config.colorscheme.primary)
+            .block(
+                Block::bordered()
+                    .border_type(ratatui::widgets::BorderType::Rounded)
                     .fg(self.config.colorscheme.primary)
-                    .block(
-                        Block::bordered()
-                            .border_type(ratatui::widgets::BorderType::Rounded)
-                            .fg(self.config.colorscheme.primary)
-                            .padding(Padding::uniform(1)),
-                    )
-                    .centered();
+                    .padding(Padding::uniform(1)),
+            )
+            .centered();
 
             let popup_layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -315,7 +316,7 @@ pgup,pgdn - move screen
                 (_, KeyCode::PageUp) => self.move_page_up(),
                 (_, KeyCode::PageDown) => self.move_page_down(),
                 (_, KeyCode::Backspace) => {
-                    let idx = (self.cursor_y*16+self.cursor_x) as usize;
+                    let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
                     let old = self.data[idx];
                     self.data.remove(idx);
                     self.changes.push(Change::Delete(idx, old));
