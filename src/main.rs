@@ -197,8 +197,8 @@ impl App {
             let mut ascii_line = Vec::new();
 
             for j in 0..16 {
-                let pos = row_start + j-offset;
-                if pos> self.data.len() as u32 {
+                let pos = row_start + j - offset;
+                if pos > self.data.len() as u32 {
                     break;
                 }
 
@@ -325,8 +325,8 @@ pgup,pgdn - move screen
                     self.state = AppState::Edit;
                     self.is_inserting = false;
                     self.insert_to_buffer(c);
-                },
-                
+                }
+
                 /*
                 //i really wanna do this but for some reason it doesnt work with numbers
                 // for later!
@@ -336,7 +336,6 @@ pgup,pgdn - move screen
                     self.insert_to_buffer(c);
                 },
                 */
-
                 (_, KeyCode::Char('i')) => {
                     self.state = AppState::Edit;
                     self.is_inserting = true;
@@ -379,7 +378,7 @@ pgup,pgdn - move screen
                             }
                         }
                         self.buffer = [' ', ' '];
-                        self.is_inserting=false; 
+                        self.is_inserting = false;
                     }
                 }
                 (_, KeyCode::Backspace) => {}
