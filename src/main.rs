@@ -177,7 +177,8 @@ impl App {
 
         for i in self.starting_line..self.starting_line + layout[1].height as u32 {
             let row_start = i * 16;
-            if row_start >= self.data.len() as u32 {
+            
+            if row_start > self.data.len() as u32{
                 break;
             }
 
@@ -257,7 +258,12 @@ impl App {
         // render help popup
         if self.state == AppState::Help {
             let popup =
-                Paragraph::new("h - help\nq - quit\ni - insert\nu - undo\nU - redo\ns - save")
+                Paragraph::new("h - help       u - undo
+q - quit       U - redo
+i - insert     s - save
+backspace - delete byte
+pgup,pgdn - move screen
+")
                     .fg(self.config.colorscheme.primary)
                     .block(
                         Block::bordered()
@@ -270,13 +276,13 @@ impl App {
             let popup_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(16)])
+                .constraints(vec![Constraint::Length(31)])
                 .split(frame.area());
 
             let popup_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(10)])
+                .constraints(vec![Constraint::Length(9)])
                 .split(popup_layout[0]);
 
             frame.render_widget(Clear, popup_layout[0]);
@@ -308,6 +314,12 @@ impl App {
                 (_, KeyCode::Down) => self.move_down(),
                 (_, KeyCode::PageUp) => self.move_page_up(),
                 (_, KeyCode::PageDown) => self.move_page_down(),
+                (_, KeyCode::Backspace) => {
+                    let idx = (self.cursor_y*16+self.cursor_x) as usize;
+                    let old = self.data[idx];
+                    self.data.remove(idx);
+                    self.changes.push(Change::Delete(idx, old));
+                }
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.state = AppState::Edit;
                     self.insert_to_buffer(c);
