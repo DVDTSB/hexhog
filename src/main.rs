@@ -293,38 +293,69 @@ impl App {
 
         // render help popup
         if self.state == AppState::Help {
-            let popup = Paragraph::new(
-                "h - help      u - undo     v - select
-q - quit      U - redo     y - copy
-i - insert    s - save     p - paste
-backspace - delete
-pgup,pgdn - move screen",
-            )
-            .fg(self.config.colorscheme.primary)
-            .block(
+            use ratatui::text::{Line, Span, Text};
+
+            let accent = self.config.colorscheme.accent;
+            let primary = self.config.colorscheme.primary;
+
+            let lines = vec![
+                Line::from(vec![
+                    Span::styled("h", Style::default().fg(accent)),
+                    Span::styled(" - help      ", Style::default().fg(primary)),
+                    Span::styled("u", Style::default().fg(accent)),
+                    Span::styled(" - undo     ", Style::default().fg(primary)),
+                    Span::styled("v", Style::default().fg(accent)),
+                    Span::styled(" - select", Style::default().fg(primary)),
+                ]),
+                Line::from(vec![
+                    Span::styled("q", Style::default().fg(accent)),
+                    Span::styled(" - quit      ", Style::default().fg(primary)),
+                    Span::styled("U", Style::default().fg(accent)),
+                    Span::styled(" - redo     ", Style::default().fg(primary)),
+                    Span::styled("y", Style::default().fg(accent)),
+                    Span::styled(" - copy", Style::default().fg(primary)),
+                ]),
+                Line::from(vec![
+                    Span::styled("i", Style::default().fg(accent)),
+                    Span::styled(" - insert    ", Style::default().fg(primary)),
+                    Span::styled("s", Style::default().fg(accent)),
+                    Span::styled(" - save     ", Style::default().fg(primary)),
+                    Span::styled("p", Style::default().fg(accent)),
+                    Span::styled(" - paste", Style::default().fg(primary)),
+                ]),
+                Line::from(vec![
+                    Span::styled("bs", Style::default().fg(accent)),
+                    Span::styled(" - delete   ", Style::default().fg(primary)),
+                    Span::styled("pgup,pgdn", Style::default().fg(accent)),
+                    Span::styled(" - move screen", Style::default().fg(primary)),
+                ]),
+            ];
+
+            let popup = Paragraph::new(Text::from(lines)).block(
                 Block::bordered()
                     .border_type(ratatui::widgets::BorderType::Rounded)
-                    .fg(self.config.colorscheme.primary)
-                    .padding(Padding::symmetric(4, 1)),
+                    .fg(primary)
+                    .padding(Padding::symmetric(4, 1))
+                    .title_top(Line::from(vec![
+                        Span::styled("──── ", Style::default().fg(primary)),
+                        Span::styled("help ", Style::default().fg(accent)),
+                    ])),
             );
-            //.centered();
 
             let popup_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .flex(Flex::End)
                 .constraints(vec![Constraint::Length(47)])
-                .split(frame.area());
+                .split(layout[1]);
 
             let popup_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .flex(Flex::End)
-                .constraints(vec![Constraint::Length(9)])
+                .constraints(vec![Constraint::Length(8)])
                 .split(popup_layout[0]);
 
             frame.render_widget(Clear, popup_layout[0]);
-
-            let buffer = frame.buffer_mut();
-            buffer.set_style(
+            frame.buffer_mut().set_style(
                 popup_layout[0],
                 Style::default().bg(self.config.colorscheme.background),
             );
