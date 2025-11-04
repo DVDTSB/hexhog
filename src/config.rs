@@ -13,6 +13,7 @@ pub struct ColorScheme {
     pub accent: Color,
     pub primary: Color,
     pub border: Color,
+    pub select: Color,
     pub background: Color,
 }
 
@@ -63,6 +64,7 @@ impl Default for Config {
                 ascii_other: Color::Yellow,
                 non_ascii: Color::Green,
                 accent: Color::Blue,
+                select: Color::Gray,
                 border: Color::White,
                 primary: Color::White,
                 background: Color::Reset,
@@ -170,6 +172,7 @@ impl Config {
                 Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
                 Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
                 Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
+                Config::set_color_field(table, "select", &mut config.colorscheme.select)?;
                 Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
                 Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
                 Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
