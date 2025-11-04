@@ -64,7 +64,7 @@ impl Default for Config {
                 ascii_other: Color::Yellow,
                 non_ascii: Color::Green,
                 accent: Color::Blue,
-                select: Color::Gray,
+                select: Color::DarkGray,
                 border: Color::White,
                 primary: Color::White,
                 background: Color::Reset,

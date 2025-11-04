@@ -74,11 +74,11 @@ pub enum AppState {
     Help,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Change {
-    Edit(usize, u8, u8),
-    Insert(usize, u8),
-    Delete(usize, u8),
+    Edit(usize, Vec<u8>, Vec<u8>),
+    Insert(usize, Vec<u8>),
+    Delete(usize, Vec<u8>),
 }
 
 impl App {
@@ -220,7 +220,19 @@ impl App {
                     style = if cursor_here {
                         style.reversed()
                     } else {
-                        style.not_reversed()
+                        match self.is_selecting {
+                            false => style,
+                            true => {
+                                let (x, y) = self.selection_range();
+                                if x <= pos && pos <= y {
+                                    style
+                                        .bg(self.config.colorscheme.select)
+                                        .fg(self.config.colorscheme.primary)
+                                } else {
+                                    style
+                                }
+                            }
+                        }
                     };
                     ascii_line
                         .push(Span::from(byte.get_char(&self.config).to_string()).set_style(style));
@@ -236,11 +248,26 @@ impl App {
                 hex_line.push(span);
 
                 // spacing
-                if j == 7 {
-                    hex_line.push("  ".into());
+
+                let spacing = if j == 7 {
+                    "  "
                 } else if j < 15 {
-                    hex_line.push(" ".into());
-                }
+                    " "
+                } else {
+                    ""
+                };
+
+                hex_line.push(match self.is_selecting {
+                    true => {
+                        let (x, y) = self.selection_range();
+                        if x <= pos && pos < y {
+                            spacing.bg(self.config.colorscheme.select).into()
+                        } else {
+                            spacing.into()
+                        }
+                    }
+                    _ => spacing.into(),
+                })
             }
 
             hex_text.lines.push(Line::from(hex_line));
@@ -329,8 +356,19 @@ pgup,pgdn - move screen
                 }
                 (_, KeyCode::Backspace) => {
                     let idx = self.get_idx();
-                    let old = self.data[idx];
-                    self.data.remove(idx);
+                    let (x, y) = self.selection_range();
+                    let old = self.data[x..(y + 1)].to_vec();
+                    for _ in x..(y + 1) {
+                        self.data.remove(x);
+                    }
+                    
+
+                    //if where the cursor was now theres nothing then move it!
+                    let new_idx = idx.min(self.data.len()-1);
+                    self.cursor_y = new_idx/16;
+                    self.cursor_x = new_idx-self.cursor_y*16;
+
+
                     self.changes.push(Change::Delete(idx, old));
                 }
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
@@ -378,18 +416,18 @@ pgup,pgdn - move screen
 
                         if self.is_inserting {
                             self.data.insert(idx, new);
-                            self.changes.push(Change::Insert(idx, new));
+                            self.changes.push(Change::Insert(idx, vec![new]));
                         } else {
                             if idx >= self.data.len() {
                                 self.data.push(new);
-                                self.move_right();
                             } else {
                                 let old = self.data[idx];
                                 self.data[idx] = new;
-                                self.changes.push(Change::Edit(idx, old, new))
+                                self.changes.push(Change::Edit(idx, vec![old], vec![new]))
                             }
                         }
                         self.buffer = [' ', ' '];
+                        self.move_right();
                         self.is_inserting = false;
                     }
                 }
@@ -424,7 +462,7 @@ pgup,pgdn - move screen
     }
     fn move_page_down(&mut self) {
         self.cursor_y += self.frame_height;
-        if self.cursor_y * 16 > self.data.len()  {
+        if self.cursor_y * 16 > self.data.len() {
             self.cursor_y -= self.frame_height;
         }
     }
@@ -450,6 +488,16 @@ pgup,pgdn - move screen
         }
     }
 
+    fn selection_range(&self) -> (usize, usize) {
+        if !self.is_selecting {
+            return (self.get_idx(), self.get_idx());
+        }
+        (
+            self.get_idx().min(self.selection_start),
+            self.get_idx().max(self.selection_start).min(self.data.len()-1),
+        )
+    }
+
     fn insert_to_buffer(&mut self, c: char) {
         let c = c.to_ascii_uppercase();
         if self.buffer[0] == ' ' {
@@ -466,38 +514,65 @@ pgup,pgdn - move screen
         u8::from_str_radix(&s, 16).unwrap()
     }
 
-
     fn undo(&mut self) {
-        let change = self.changes.pop();
-        if let Some(c) = change {
-            match c {
-                Change::Edit(idx, old, _) => {
-                    self.data[idx] = old;
+        if let Some(change) = self.changes.pop() {
+            self.made_changes.push(change.clone());
+            match change {
+                Change::Edit(idx, old, _new) => {
+                    for (i, b) in old.iter().enumerate() {
+                        let pos = idx + i;
+                        if pos < self.data.len() {
+                            self.data[pos] = *b;
+                        } else {
+                            self.data.push(*b);
+                        }
+                    }
                 }
-                Change::Insert(idx, _) => {
-                    self.data.remove(idx);
+                Change::Insert(idx, inserted) => {
+                    for _ in 0..inserted.len() {
+                        if idx < self.data.len() {
+                            self.data.remove(idx);
+                        }
+                    }
                 }
-                Change::Delete(idx, a) => {
-                    self.data.insert(idx, a);
+                Change::Delete(idx, deleted) => {
+                    for (i, b) in deleted.iter().enumerate() {
+                        self.data.insert(idx + i, *b);
+                    }
                 }
             }
+            
         }
     }
 
     fn redo(&mut self) {
-        let change = self.made_changes.pop();
-        if let Some(c) = change {
-            match c {
-                Change::Edit(idx, _, new) => {
-                    self.data[idx] = new;
+        if let Some(change) = self.made_changes.pop() {
+            self.changes.push(change.clone());
+            match change {
+                Change::Edit(idx, _old, new) => {
+                    for (i, b) in new.iter().enumerate() {
+                        let pos = idx + i;
+                        if pos < self.data.len() {
+                            self.data[pos] = *b;
+                        } else {
+                            self.data.push(*b);
+                        }
+                    }
                 }
-                Change::Insert(idx, u8) => {
-                    self.data.insert(idx, u8);
+                Change::Insert(idx, inserted) => {
+                    for (i, b) in inserted.iter().enumerate() {
+                        self.data.insert(idx + i, *b);
+                    }
                 }
-                Change::Delete(idx, _) => {
-                    self.data.remove(idx);
+                Change::Delete(idx, deleted) => {
+                    for _ in 0..deleted.len() {
+                        if idx < self.data.len() {
+                            self.data.remove(idx);
+                        }
+                    }
                 }
             }
+            
         }
     }
 
