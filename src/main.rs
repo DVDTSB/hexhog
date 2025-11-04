@@ -294,31 +294,30 @@ impl App {
         // render help popup
         if self.state == AppState::Help {
             let popup = Paragraph::new(
-                "h - help       u - undo
-q - quit       U - redo
-i - insert     s - save
-backspace - delete byte
-pgup,pgdn - move screen
-",
+                "h - help      u - undo     v - select
+q - quit      U - redo     y - copy
+i - insert    s - save     p - paste
+backspace - delete
+pgup,pgdn - move screen",
             )
             .fg(self.config.colorscheme.primary)
             .block(
                 Block::bordered()
                     .border_type(ratatui::widgets::BorderType::Rounded)
                     .fg(self.config.colorscheme.primary)
-                    .padding(Padding::uniform(1)),
-            )
-            .centered();
+                    .padding(Padding::symmetric(4, 1)),
+            );
+            //.centered();
 
             let popup_layout = Layout::default()
                 .direction(Direction::Horizontal)
-                .flex(Flex::Center)
-                .constraints(vec![Constraint::Length(31)])
+                .flex(Flex::End)
+                .constraints(vec![Constraint::Length(47)])
                 .split(frame.area());
 
             let popup_layout = Layout::default()
                 .direction(Direction::Vertical)
-                .flex(Flex::Center)
+                .flex(Flex::End)
                 .constraints(vec![Constraint::Length(9)])
                 .split(popup_layout[0]);
 
