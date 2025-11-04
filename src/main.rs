@@ -65,6 +65,7 @@ pub struct App {
     is_inserting: bool,
     is_selecting: bool,
     selection_start: usize,
+    clipboard: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -107,6 +108,7 @@ impl App {
             is_inserting: false,
             is_selecting: false,
             selection_start: 0,
+            clipboard: Vec::new(),
         })
     }
 
@@ -211,6 +213,10 @@ impl App {
 
                 let span = if editing && offset == 0 {
                     offset = self.is_inserting as usize;
+
+                    ascii_line
+                        .push(" ".bg(self.config.colorscheme.primary));
+
                     Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
                         .fg(self.config.colorscheme.primary)
                         .reversed()
@@ -346,6 +352,7 @@ pgup,pgdn - move screen
                 (_, KeyCode::Down) => self.move_down(),
                 (_, KeyCode::PageUp) => self.move_page_up(),
                 (_, KeyCode::PageDown) => self.move_page_down(),
+
                 (_, KeyCode::Char('v')) => {
                     if self.is_selecting {
                         self.is_selecting = false;
@@ -354,20 +361,32 @@ pgup,pgdn - move screen
                         self.selection_start = self.get_idx();
                     }
                 }
+
+                (_, KeyCode::Esc) => {
+                    self.is_selecting = false;
+                }
+
+                (_, KeyCode::Char('y')) => {
+                    self.clipboard = self.get_selection_data();
+                    self.is_selecting = false;
+                }
+                (_, KeyCode::Char('p')) => {
+                    self.do_change(Change::Insert(self.get_idx(), self.clipboard.clone()));
+                    self.selection_start = self.get_idx();
+                    self.is_selecting = true;
+                    self.set_idx(self.selection_start+self.clipboard.len()-1);
+                }
+
                 (_, KeyCode::Backspace) => {
                     let idx = self.get_idx();
                     let (x, y) = self.selection_range();
                     let old = self.data[x..(y + 1)].to_vec();
-                    for _ in x..(y + 1) {
-                        self.data.remove(x);
-                    }
+
+                    self.do_change(Change::Delete(idx, old));
 
                     //if where the cursor was now theres nothing then move it!
                     let new_idx = idx.min(self.data.len() - 1);
-                    self.cursor_y = new_idx / 16;
-                    self.cursor_x = new_idx - self.cursor_y * 16;
-
-                    self.changes.push(Change::Delete(idx, old));
+                    self.set_idx(new_idx);
                 }
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
                     self.is_selecting = false;
@@ -410,7 +429,7 @@ pgup,pgdn - move screen
                 _ => {}
             },
             AppState::Edit => match (key.modifiers, key.code) {
-                (_, KeyCode::Esc) => {
+                (_, KeyCode::Esc) | (_, KeyCode::Backspace) => {
                     self.state = AppState::Move;
                     self.buffer = [' ', ' '];
                 }
@@ -422,15 +441,13 @@ pgup,pgdn - move screen
                         let new = self.buffer_to_u8();
 
                         if self.is_inserting {
-                            self.data.insert(idx, new);
-                            self.changes.push(Change::Insert(idx, vec![new]));
+                            self.do_change(Change::Insert(idx, vec![new]));
                         } else {
                             if idx >= self.data.len() {
                                 self.data.push(new);
                             } else {
                                 let old = self.data[idx];
-                                self.data[idx] = new;
-                                self.changes.push(Change::Edit(idx, vec![old], vec![new]))
+                                self.do_change(Change::Edit(idx, vec![old], vec![new]))
                             }
                         }
                         self.buffer = [' ', ' '];
@@ -438,7 +455,6 @@ pgup,pgdn - move screen
                         self.is_inserting = false;
                     }
                 }
-                (_, KeyCode::Backspace) => {}
                 _ => {}
             },
             AppState::Help => {
@@ -453,6 +469,11 @@ pgup,pgdn - move screen
 
     fn get_idx(&self) -> usize {
         self.cursor_y * 16 + self.cursor_x
+    }
+
+    fn set_idx(&mut self, idx:usize) {
+        self.cursor_y = idx/16;
+        self.cursor_x = idx%16;
     }
 
     fn move_up(&mut self) {
@@ -507,6 +528,11 @@ pgup,pgdn - move screen
         )
     }
 
+    fn get_selection_data(&self) -> Vec<u8> {
+        let (x,y) = self.selection_range();
+        self.data[x..(y+1)].to_vec()
+    }
+
     fn insert_to_buffer(&mut self, c: char) {
         let c = c.to_ascii_uppercase();
         if self.buffer[0] == ' ' {
@@ -523,63 +549,60 @@ pgup,pgdn - move screen
         u8::from_str_radix(&s, 16).unwrap()
     }
 
+    fn replace_data(&mut self, idx: usize, new: Vec<u8>) {
+        for (i, b) in new.iter().enumerate() {
+            let pos = idx + i;
+            if pos < self.data.len() {
+                self.data[pos] = *b;
+            } else {
+                self.data.push(*b);
+            }
+        }
+    }
+
+    fn insert_data(&mut self, idx: usize, new: Vec<u8>) {
+        for (i, b) in new.iter().enumerate() {
+            self.data.insert(idx + i, *b);
+        }
+    }
+
+    fn delete_data(&mut self, idx: usize, amt: usize) {
+        for _ in 0..amt {
+            if idx < self.data.len() {
+                self.data.remove(idx);
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn do_change(&mut self, change: Change) {
+        self.changes.push(change.clone());
+        match change {
+            Change::Edit(idx, _old, new) => self.replace_data(idx, new),
+            Change::Insert(idx, new) => self.insert_data(idx, new),
+            Change::Delete(idx, old) => self.delete_data(idx, old.len()),
+        }
+    }
+
+    fn undo_change(&mut self, change: Change) {
+        self.made_changes.push(change.clone());
+        match change {
+            Change::Edit(idx, old, _new) => self.replace_data(idx, old),
+            Change::Insert(idx, new) => self.delete_data(idx, new.len()),
+            Change::Delete(idx, old) => self.insert_data(idx, old),
+        }
+    }
+
     fn undo(&mut self) {
         if let Some(change) = self.changes.pop() {
-            self.made_changes.push(change.clone());
-            match change {
-                Change::Edit(idx, old, _new) => {
-                    for (i, b) in old.iter().enumerate() {
-                        let pos = idx + i;
-                        if pos < self.data.len() {
-                            self.data[pos] = *b;
-                        } else {
-                            self.data.push(*b);
-                        }
-                    }
-                }
-                Change::Insert(idx, inserted) => {
-                    for _ in 0..inserted.len() {
-                        if idx < self.data.len() {
-                            self.data.remove(idx);
-                        }
-                    }
-                }
-                Change::Delete(idx, deleted) => {
-                    for (i, b) in deleted.iter().enumerate() {
-                        self.data.insert(idx + i, *b);
-                    }
-                }
-            }
+            self.undo_change(change);
         }
     }
 
     fn redo(&mut self) {
         if let Some(change) = self.made_changes.pop() {
-            self.changes.push(change.clone());
-            match change {
-                Change::Edit(idx, _old, new) => {
-                    for (i, b) in new.iter().enumerate() {
-                        let pos = idx + i;
-                        if pos < self.data.len() {
-                            self.data[pos] = *b;
-                        } else {
-                            self.data.push(*b);
-                        }
-                    }
-                }
-                Change::Insert(idx, inserted) => {
-                    for (i, b) in inserted.iter().enumerate() {
-                        self.data.insert(idx + i, *b);
-                    }
-                }
-                Change::Delete(idx, deleted) => {
-                    for _ in 0..deleted.len() {
-                        if idx < self.data.len() {
-                            self.data.remove(idx);
-                        }
-                    }
-                }
-            }
+            self.do_change(change);
         }
     }
 
