@@ -361,17 +361,16 @@ pgup,pgdn - move screen
                     for _ in x..(y + 1) {
                         self.data.remove(x);
                     }
-                    
 
                     //if where the cursor was now theres nothing then move it!
-                    let new_idx = idx.min(self.data.len()-1);
-                    self.cursor_y = new_idx/16;
-                    self.cursor_x = new_idx-self.cursor_y*16;
-
+                    let new_idx = idx.min(self.data.len() - 1);
+                    self.cursor_y = new_idx / 16;
+                    self.cursor_x = new_idx - self.cursor_y * 16;
 
                     self.changes.push(Change::Delete(idx, old));
                 }
                 (KeyModifiers::NONE, KeyCode::Char(c)) if c.is_ascii_hexdigit() => {
+                    self.is_selecting = false;
                     self.state = AppState::Edit;
                     self.is_inserting = false;
                     self.insert_to_buffer(c);
@@ -387,16 +386,24 @@ pgup,pgdn - move screen
                 },
                 */
                 (_, KeyCode::Char('i')) => {
+                    self.is_selecting = false;
                     self.state = AppState::Edit;
                     self.is_inserting = true;
                 }
 
                 (KeyModifiers::NONE, KeyCode::Char('u'))
-                | (KeyModifiers::NONE, KeyCode::Char('U')) => self.undo(),
+                | (KeyModifiers::NONE, KeyCode::Char('U')) => {
+                    self.is_selecting = false;
+                    self.undo();
+                }
                 (KeyModifiers::SHIFT, KeyCode::Char('u'))
-                | (KeyModifiers::SHIFT, KeyCode::Char('U')) => self.redo(),
+                | (KeyModifiers::SHIFT, KeyCode::Char('U')) => {
+                    self.is_selecting = false;
+                    self.redo();
+                }
                 (_, KeyCode::Char('s')) | (_, KeyCode::Char('S')) => self.save(),
                 (_, KeyCode::Char('h')) | (_, KeyCode::Char('H')) => {
+                    self.is_selecting = false;
                     self.state = AppState::Help;
                 }
 
@@ -494,7 +501,9 @@ pgup,pgdn - move screen
         }
         (
             self.get_idx().min(self.selection_start),
-            self.get_idx().max(self.selection_start).min(self.data.len()-1),
+            self.get_idx()
+                .max(self.selection_start)
+                .min(self.data.len() - 1),
         )
     }
 
@@ -541,7 +550,6 @@ pgup,pgdn - move screen
                     }
                 }
             }
-            
         }
     }
 
@@ -572,7 +580,6 @@ pgup,pgdn - move screen
                     }
                 }
             }
-            
         }
     }
 
