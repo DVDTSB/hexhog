@@ -214,8 +214,7 @@ impl App {
                 let span = if editing && offset == 0 {
                     offset = self.is_inserting as usize;
 
-                    ascii_line
-                        .push(" ".bg(self.config.colorscheme.primary));
+                    ascii_line.push(" ".bg(self.config.colorscheme.primary));
 
                     Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
                         .fg(self.config.colorscheme.primary)
@@ -374,7 +373,7 @@ pgup,pgdn - move screen
                     self.do_change(Change::Insert(self.get_idx(), self.clipboard.clone()));
                     self.selection_start = self.get_idx();
                     self.is_selecting = true;
-                    self.set_idx(self.selection_start+self.clipboard.len()-1);
+                    self.set_idx(self.selection_start + self.clipboard.len() - 1);
                 }
 
                 (_, KeyCode::Backspace) => {
@@ -471,9 +470,9 @@ pgup,pgdn - move screen
         self.cursor_y * 16 + self.cursor_x
     }
 
-    fn set_idx(&mut self, idx:usize) {
-        self.cursor_y = idx/16;
-        self.cursor_x = idx%16;
+    fn set_idx(&mut self, idx: usize) {
+        self.cursor_y = idx / 16;
+        self.cursor_x = idx % 16;
     }
 
     fn move_up(&mut self) {
@@ -529,8 +528,8 @@ pgup,pgdn - move screen
     }
 
     fn get_selection_data(&self) -> Vec<u8> {
-        let (x,y) = self.selection_range();
-        self.data[x..(y+1)].to_vec()
+        let (x, y) = self.selection_range();
+        self.data[x..(y + 1)].to_vec()
     }
 
     fn insert_to_buffer(&mut self, c: char) {
