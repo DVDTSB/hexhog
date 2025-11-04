@@ -53,16 +53,18 @@ pub struct App {
     config: Config,
     file_name: String,
     data: Vec<u8>,
-    starting_line: u32,
-    cursor_x: u32,
-    cursor_y: u32,
-    frame_height: u32,
+    starting_line: usize,
+    cursor_x: usize,
+    cursor_y: usize,
+    frame_height: usize,
     running: bool,
     state: AppState,
     buffer: [char; 2],         //used for editing a byte
     changes: Vec<Change>,      //undos
     made_changes: Vec<Change>, //redos
     is_inserting: bool,
+    is_selecting: bool,
+    selection_start: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -103,6 +105,8 @@ impl App {
             made_changes: Vec::new(),
             config,
             is_inserting: false,
+            is_selecting: false,
+            selection_start: 0,
         })
     }
 
@@ -168,7 +172,7 @@ impl App {
             .flex(Flex::Center)
             .split(layout[1]);
 
-        self.frame_height = layout[1].height as u32;
+        self.frame_height = layout[1].height as usize;
 
         let mut addr_text = Text::default();
         let mut hex_text = Text::default();
@@ -176,10 +180,10 @@ impl App {
 
         let mut offset = 0;
 
-        for i in self.starting_line..self.starting_line + layout[1].height as u32 {
+        for i in self.starting_line..self.starting_line + layout[1].height as usize {
             let row_start = i * 16;
 
-            if row_start > self.data.len() as u32 {
+            if row_start > self.data.len() {
                 break;
             }
 
@@ -198,7 +202,7 @@ impl App {
 
             for j in 0..16 {
                 let pos = row_start + j - offset;
-                if pos > self.data.len() as u32 {
+                if pos > self.data.len() {
                     break;
                 }
 
@@ -206,11 +210,11 @@ impl App {
                 let editing = matches!(self.state, AppState::Edit) && cursor_here;
 
                 let span = if editing && offset == 0 {
-                    offset = self.is_inserting as u32;
+                    offset = self.is_inserting as usize;
                     Span::from(format!("{}{}", self.buffer[0], self.buffer[1]))
                         .fg(self.config.colorscheme.primary)
                         .reversed()
-                } else if pos < self.data.len() as u32 {
+                } else if pos < self.data.len() {
                     let byte = Byte::new(self.data[pos as usize]);
                     let mut style = byte.get_style(&self.config);
                     style = if cursor_here {
@@ -315,8 +319,16 @@ pgup,pgdn - move screen
                 (_, KeyCode::Down) => self.move_down(),
                 (_, KeyCode::PageUp) => self.move_page_up(),
                 (_, KeyCode::PageDown) => self.move_page_down(),
+                (_, KeyCode::Char('v')) => {
+                    if self.is_selecting {
+                        self.is_selecting = false;
+                    } else {
+                        self.is_selecting = true;
+                        self.selection_start = self.get_idx();
+                    }
+                }
                 (_, KeyCode::Backspace) => {
-                    let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
+                    let idx = self.get_idx();
                     let old = self.data[idx];
                     self.data.remove(idx);
                     self.changes.push(Change::Delete(idx, old));
@@ -361,7 +373,7 @@ pgup,pgdn - move screen
                     self.insert_to_buffer(c);
                     if self.buffer[0] != ' ' && self.buffer[1] != ' ' {
                         self.state = AppState::Move;
-                        let idx = (self.cursor_y * 16 + self.cursor_x) as usize;
+                        let idx = self.get_idx();
                         let new = self.buffer_to_u8();
 
                         if self.is_inserting {
@@ -394,12 +406,16 @@ pgup,pgdn - move screen
         self.running = false;
     }
 
+    fn get_idx(&self) -> usize {
+        self.cursor_y * 16 + self.cursor_x
+    }
+
     fn move_up(&mut self) {
         self.cursor_y = self.cursor_y.saturating_sub(1);
     }
     fn move_down(&mut self) {
         self.cursor_y += 1;
-        if self.cursor_y * 16 > self.data.len() as u32 {
+        if self.cursor_y * 16 > self.data.len() {
             self.cursor_y -= 1;
         }
     }
@@ -408,13 +424,13 @@ pgup,pgdn - move screen
     }
     fn move_page_down(&mut self) {
         self.cursor_y += self.frame_height;
-        if self.cursor_y * 16 > self.data.len() as u32 {
+        if self.cursor_y * 16 > self.data.len()  {
             self.cursor_y -= self.frame_height;
         }
     }
     fn move_right(&mut self) {
         self.cursor_x += 1;
-        if self.cursor_y * 16 + self.cursor_x >= self.data.len() as u32 + 1 {
+        if self.get_idx() >= self.data.len() + 1 {
             self.cursor_x -= 1;
         }
         if self.cursor_x >= 16 {
@@ -449,6 +465,7 @@ pgup,pgdn - move screen
         s.push(self.buffer[1]);
         u8::from_str_radix(&s, 16).unwrap()
     }
+
 
     fn undo(&mut self) {
         let change = self.changes.pop();
