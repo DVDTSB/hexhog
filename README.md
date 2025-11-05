@@ -2,27 +2,36 @@
 
 configurable hex viewer/editor
 
-![hexhog lol](meow.gif)
+![hexhog lol](hexhog.gif)
 
 To run use:
 ```
 hexhog <file>
 ```
 
-Current limitations:
-- loads whole file into memory
-
-To do:
-- add selections
-- add copy/paste
-- add find
-
 ## Instalation
 If you have cargo installed, just run:
 ```
 cargo install hexhog
 ```
+
+Alternatevely, it is available on AUR (many thanks to @dhopcs).
+```
+yay -S hexhog
+```
+
 I hope I can make this tool available on other package managers soon.
+
+## Features
+For now `hexhog` allows for basic hex editing features for files, such as editing/deleting/inserting bytes, as well as selecting and copy/pasting bytes. I'm look forward to adding other features, including (but not only):
+- moving the selection
+- find/replace
+- bookmarks
+- better navigation
+- CP437
+- other coloring options
+
+While I do love(and use) modal editors, `hexhog` does not attempt to be one. I am trying to make it as intuitive as possible :)
 
 ## Configuration
 
@@ -50,6 +59,10 @@ ascii_whitespace = "·"
 ascii_other = "°"
 non_ascii = "×"
 ```
+
+## Feedback
+
+Feedback on `hexhog` is highly appreciated. Thanks! :D
 
 ## License
 
