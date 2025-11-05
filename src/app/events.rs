@@ -2,7 +2,7 @@ use crate::app::{App, change::Change, state::AppState};
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 impl App {
-    pub     fn handle_crossterm_events(&mut self) -> Result<()> {
+    pub fn handle_crossterm_events(&mut self) -> Result<()> {
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key),
             _ => {}
@@ -50,7 +50,7 @@ impl App {
                     let (x, y) = self.selection_range();
 
                     //since cursor can also be outside data check this lol;
-                    if x==y && y==self.data.len() {
+                    if x == y && y == self.data.len() {
                         self.move_left();
                         return ();
                     }

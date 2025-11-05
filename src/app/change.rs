@@ -7,8 +7,6 @@ pub enum Change {
     Delete(usize, Vec<u8>),
 }
 
-
-
 impl App {
     pub fn do_change(&mut self, change: Change) {
         self.changes.push(change.clone());

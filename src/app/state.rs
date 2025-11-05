@@ -1,9 +1,9 @@
-use std::{fs::File, io::Read, path::Path};
+use super::change::Change;
+use crate::config::Config;
 use clap::Parser;
 use color_eyre::Result;
 use ratatui::DefaultTerminal;
-use crate::config::Config;
-use super::change::Change;
+use std::{fs::File, io::Read, path::Path};
 
 #[derive(Parser, Debug)]
 #[command(version, about)]
