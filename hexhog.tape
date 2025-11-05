@@ -55,17 +55,14 @@
 #   Hide                            Hide the subsequent commands from the output
 #   Show                            Show the subsequent commands in the output
 
-Output meow.gif
+Output hexhog.gif
 
 Require "hexhog"
 
-Set Shell "zsh"
+Set Shell bash
 Set FontSize 32
 Set Width 1600
 Set Height 800
-Set FontFamily "CaskaydiaCove NF"
-Set Theme "GitHub Dark"
-
 
 Type "hexhog 6502.bin" Sleep 500ms  Enter Sleep 100ms
 Right 5 Sleep 500ms
