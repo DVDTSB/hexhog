@@ -1,7 +1,7 @@
 use crate::app::{App, state::AppState};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Flex, Layout},
+    layout::{Constraint, Direction, Flex, Layout, Rect},
     prelude::Alignment,
     style::{Style, Styled, Stylize},
     text::{Line, Span, Text},
@@ -12,13 +12,7 @@ use crate::byte::Byte;
 
 impl App {
     pub fn render(&mut self, frame: &mut Frame) {
-        let area = frame.area();
-        let buffer = frame.buffer_mut();
-
-        buffer.set_style(
-            area,
-            Style::default().bg(self.config.colorscheme.background),
-        );
+        self.render_background(frame);
 
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -29,16 +23,40 @@ impl App {
             ])
             .split(frame.area());
 
+        self.frame_height = layout[1].height as usize;
+
+        self.render_title(frame, layout[0]);
+        self.render_status(frame, layout[2]);
+        self.render_editor(frame, layout[1]);
+
+        if self.state == AppState::Help {
+            self.render_help_popup(frame, layout[1]);
+        }
+    }
+
+    fn render_background(&self, frame: &mut Frame) {
+        let area = frame.area();
+        let buffer = frame.buffer_mut();
+
+        buffer.set_style(
+            area,
+            Style::default().bg(self.config.colorscheme.background),
+        );
+    }
+
+    fn render_title(&self, frame: &mut Frame, area: Rect) {
         let title = Paragraph::new(format!(" hexhog ─ {} ", self.file_name))
             .alignment(Alignment::Center)
             .fg(self.config.colorscheme.accent);
-        frame.render_widget(title, layout[0]);
+        frame.render_widget(title, area);
+    }
 
+    fn render_status(&self, frame: &mut Frame, area: Rect) {
         let used_area = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(8 + 48 + 2 + 2 + 16)])
             .flex(Flex::Center)
-            .split(layout[2]);
+            .split(area);
 
         let status_text = format!(
             " h - help │ cursor: {:08X} │ size: {} bytes ",
@@ -49,9 +67,10 @@ impl App {
             .alignment(Alignment::Center)
             .fg(self.config.colorscheme.accent)
             .reversed();
-
         frame.render_widget(status, used_area[0]);
+    }
 
+    fn render_editor(&self, frame: &mut Frame, area: Rect) {
         let columns = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -60,9 +79,7 @@ impl App {
                 Constraint::Length(16),
             ])
             .flex(Flex::Center)
-            .split(layout[1]);
-
-        self.frame_height = layout[1].height as usize;
+            .split(area);
 
         let mut addr_text = Text::default();
         let mut hex_text = Text::default();
@@ -70,7 +87,7 @@ impl App {
 
         let mut offset = 0;
 
-        for i in self.starting_line..self.starting_line + layout[1].height as usize {
+        for i in self.starting_line..self.starting_line + area.height as usize {
             let row_start = i * 16;
 
             if row_start > self.data.len() {
@@ -181,76 +198,73 @@ impl App {
             columns[1],
         );
         frame.render_widget(Paragraph::new(ascii_text), columns[2]);
+    }
 
-        // render help popup
-        if self.state == AppState::Help {
-            use ratatui::text::{Line, Span, Text};
+    fn render_help_popup(&self, frame: &mut Frame, area: Rect) {
+        let accent = self.config.colorscheme.accent;
+        let primary = self.config.colorscheme.primary;
 
-            let accent = self.config.colorscheme.accent;
-            let primary = self.config.colorscheme.primary;
+        let lines = vec![
+            Line::from(vec![
+                Span::styled("h", Style::default().fg(accent)),
+                Span::styled(" - help      ", Style::default().fg(primary)),
+                Span::styled("u", Style::default().fg(accent)),
+                Span::styled(" - undo     ", Style::default().fg(primary)),
+                Span::styled("v", Style::default().fg(accent)),
+                Span::styled(" - select", Style::default().fg(primary)),
+            ]),
+            Line::from(vec![
+                Span::styled("q", Style::default().fg(accent)),
+                Span::styled(" - quit      ", Style::default().fg(primary)),
+                Span::styled("U", Style::default().fg(accent)),
+                Span::styled(" - redo     ", Style::default().fg(primary)),
+                Span::styled("y", Style::default().fg(accent)),
+                Span::styled(" - copy", Style::default().fg(primary)),
+            ]),
+            Line::from(vec![
+                Span::styled("i", Style::default().fg(accent)),
+                Span::styled(" - insert    ", Style::default().fg(primary)),
+                Span::styled("s", Style::default().fg(accent)),
+                Span::styled(" - save     ", Style::default().fg(primary)),
+                Span::styled("p", Style::default().fg(accent)),
+                Span::styled(" - paste", Style::default().fg(primary)),
+            ]),
+            Line::from(vec![
+                Span::styled("bs", Style::default().fg(accent)),
+                Span::styled(" - delete   ", Style::default().fg(primary)),
+                Span::styled("pgup,pgdn", Style::default().fg(accent)),
+                Span::styled(" - move screen", Style::default().fg(primary)),
+            ]),
+        ];
 
-            let lines = vec![
-                Line::from(vec![
-                    Span::styled("h", Style::default().fg(accent)),
-                    Span::styled(" - help      ", Style::default().fg(primary)),
-                    Span::styled("u", Style::default().fg(accent)),
-                    Span::styled(" - undo     ", Style::default().fg(primary)),
-                    Span::styled("v", Style::default().fg(accent)),
-                    Span::styled(" - select", Style::default().fg(primary)),
-                ]),
-                Line::from(vec![
-                    Span::styled("q", Style::default().fg(accent)),
-                    Span::styled(" - quit      ", Style::default().fg(primary)),
-                    Span::styled("U", Style::default().fg(accent)),
-                    Span::styled(" - redo     ", Style::default().fg(primary)),
-                    Span::styled("y", Style::default().fg(accent)),
-                    Span::styled(" - copy", Style::default().fg(primary)),
-                ]),
-                Line::from(vec![
-                    Span::styled("i", Style::default().fg(accent)),
-                    Span::styled(" - insert    ", Style::default().fg(primary)),
-                    Span::styled("s", Style::default().fg(accent)),
-                    Span::styled(" - save     ", Style::default().fg(primary)),
-                    Span::styled("p", Style::default().fg(accent)),
-                    Span::styled(" - paste", Style::default().fg(primary)),
-                ]),
-                Line::from(vec![
-                    Span::styled("bs", Style::default().fg(accent)),
-                    Span::styled(" - delete   ", Style::default().fg(primary)),
-                    Span::styled("pgup,pgdn", Style::default().fg(accent)),
-                    Span::styled(" - move screen", Style::default().fg(primary)),
-                ]),
-            ];
+        let popup = Paragraph::new(Text::from(lines)).block(
+            Block::bordered()
+                .border_type(ratatui::widgets::BorderType::Rounded)
+                .fg(primary)
+                .padding(Padding::symmetric(1, 0))
+                .title_top(Line::from(vec![
+                    //Span::styled("──── ", Style::default().fg(primary)),
+                    Span::styled(" help ", Style::default().fg(accent)),
+                ])),
+        );
 
-            let popup = Paragraph::new(Text::from(lines)).block(
-                Block::bordered()
-                    .border_type(ratatui::widgets::BorderType::Rounded)
-                    .fg(primary)
-                    .padding(Padding::symmetric(4, 1))
-                    .title_top(Line::from(vec![
-                        Span::styled("──── ", Style::default().fg(primary)),
-                        Span::styled("help ", Style::default().fg(accent)),
-                    ])),
-            );
+        let popup_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .flex(Flex::End)
+            .constraints(vec![Constraint::Length(41)])
+            .split(area);
 
-            let popup_layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .flex(Flex::End)
-                .constraints(vec![Constraint::Length(47)])
-                .split(layout[1]);
+        let popup_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .flex(Flex::End)
+            .constraints(vec![Constraint::Length(6)])
+            .split(popup_layout[0]);
 
-            let popup_layout = Layout::default()
-                .direction(Direction::Vertical)
-                .flex(Flex::End)
-                .constraints(vec![Constraint::Length(8)])
-                .split(popup_layout[0]);
-
-            frame.render_widget(Clear, popup_layout[0]);
-            frame.buffer_mut().set_style(
-                popup_layout[0],
-                Style::default().bg(self.config.colorscheme.background),
-            );
-            frame.render_widget(popup, popup_layout[0]);
-        }
+        frame.render_widget(Clear, popup_layout[0]);
+        frame.buffer_mut().set_style(
+            popup_layout[0],
+            Style::default().bg(self.config.colorscheme.background),
+        );
+        frame.render_widget(popup, popup_layout[0]);
     }
 }
