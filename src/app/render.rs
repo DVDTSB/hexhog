@@ -36,9 +36,7 @@ impl App {
 
         let used_area = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Length(8+48+2+2+16),
-            ])
+            .constraints([Constraint::Length(8 + 48 + 2 + 2 + 16)])
             .flex(Flex::Center)
             .split(layout[2]);
 
@@ -49,7 +47,8 @@ impl App {
         );
         let status = Paragraph::new(status_text)
             .alignment(Alignment::Center)
-            .fg(self.config.colorscheme.accent).reversed();
+            .fg(self.config.colorscheme.accent)
+            .reversed();
 
         frame.render_widget(status, used_area[0]);
 
@@ -114,9 +113,8 @@ impl App {
                     style = if cursor_here {
                         match self.is_selecting {
                             false => style.reversed(),
-                            true => style.fg(self.config.colorscheme.primary).reversed()
+                            true => style.fg(self.config.colorscheme.primary).reversed(),
                         }
-                        
                     } else {
                         match self.is_selecting {
                             false => style,
