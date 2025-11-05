@@ -1,6 +1,6 @@
-mod state;
 mod change;
-mod utils;
 mod events;
 mod render;
-pub use state::{App,  Args};
+mod state;
+mod utils;
+pub use state::{App, Args};

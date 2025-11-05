@@ -1,11 +1,11 @@
+mod app;
 mod byte;
 mod config;
-mod app;
 
+use app::{App, Args};
 use clap::Parser;
 use color_eyre::Result;
 use config::Config;
-use app::{App, Args};
 
 fn main() -> Result<()> {
     color_eyre::install()?;
