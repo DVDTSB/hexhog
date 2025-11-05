@@ -43,9 +43,8 @@ impl App {
             .split(layout[2]);
 
         let status_text = format!(
-            " h - help | state: {:?} │ cursor: {:08X} │ size: {} bytes ",
-            self.state,
-            self.cursor_x + self.cursor_y * 16,
+            " h - help │ cursor: {:08X} │ size: {} bytes ",
+            self.get_idx(),
             self.data.len(),
         );
         let status = Paragraph::new(status_text)
@@ -113,7 +112,11 @@ impl App {
                     let byte = Byte::new(self.data[pos as usize]);
                     let mut style = byte.get_style(&self.config);
                     style = if cursor_here {
-                        style.reversed()
+                        match self.is_selecting {
+                            false => style.reversed(),
+                            true => style.fg(self.config.colorscheme.primary).reversed()
+                        }
+                        
                     } else {
                         match self.is_selecting {
                             false => style,
