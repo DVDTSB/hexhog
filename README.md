@@ -1,29 +1,33 @@
 # hexhog
 
-configurable hex viewer/editor
+A configurable hex viewer/editor
 
 ![hexhog lol](hexhog.gif)
 
-To run use:
+To run `hexhog`, use the following command:
 ```
 hexhog <file>
 ```
 
-## Instalation
-If you have cargo installed, just run:
+## Installation
+If you have cargo installed, you can run the following command:
 ```
 cargo install hexhog
 ```
 
-Alternatevely, it is available on AUR (many thanks to @dhopcs).
+It is available on AUR and Homebrew, thanks to [@dhopcs](https://github.com/dhopcs) and [@chenrui333](https://github.com/chenrui333).
 ```
 yay -S hexhog
 ```
 
-I hope I can make this tool available on other package managers soon.
+```
+brew install hexhog
+```
+
+I hope to make this tool available on other package managers soon.
 
 ## Features
-For now `hexhog` allows for basic hex editing features for files, such as editing/deleting/inserting bytes, as well as selecting and copy/pasting bytes. I'm look forward to adding other features, including (but not only):
+For now, `hexhog` allows for basic hex editing features for files, such as editing/deleting/inserting bytes, as well as selecting and copy/pasting bytes. I'm look forward to adding other features, including (but not only):
 - moving the selection
 - find/replace
 - bookmarks
@@ -31,11 +35,11 @@ For now `hexhog` allows for basic hex editing features for files, such as editin
 - CP437
 - other coloring options
 
-While I do love(and use) modal editors, `hexhog` does not attempt to be one. I am trying to make it as intuitive as possible :)
+While I do love (and use) modal editors, `hexhog` does not attempt to be one. I am trying to make it as intuitive as possible :)
 
 ## Configuration
 
-Configuration file is located at:
+You can find the configuration file in the following locations:
 - Linux: `/home/user/.config/hexhog/config.toml`
 - Windows: `C:\Users\user\AppData\Roaming\hexhog\config.toml`
 - MacOS: `/Users/user/Library/Application Support/hexhog/config.toml`
@@ -66,8 +70,8 @@ Feedback on `hexhog` is highly appreciated. Thanks! :D
 
 ## License
 
-Copyright (c) dvdtsb <2025>
+Copyright &copy; dvdtsb 2025
 
-This project is licensed under the MIT license ([LICENSE] or <http://opensource.org/licenses/MIT>)
+This project uses the MIT license ([LICENSE] or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT)).
 
 [LICENSE]: ./LICENSE
