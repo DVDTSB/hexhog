@@ -15,7 +15,7 @@ If you have cargo installed, you can run the following command:
 cargo install hexhog
 ```
 
-It is available on AUR and Homebrew, thanks to [@dhopcs](https://github.com/dhopcs) and [@chenrui333](https://github.com/chenrui333).
+It is also available on AUR and Homebrew, thanks to [@dhopcs](https://github.com/dhopcs) and [@chenrui333](https://github.com/chenrui333).
 ```
 yay -S hexhog
 ```
