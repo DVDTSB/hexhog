@@ -1,6 +1,6 @@
 [package]
 name = "hexhog"
-version = "0.1.3"
+version = "0.1.4"
 description = "hex viewer/editor"
 authors = ["dvdtsb"]
 license = "MIT"
