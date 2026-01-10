@@ -1,3 +1,6 @@
+
+![hexhog banner](banner.svg)
+
 # hexhog
 
 A configurable hex viewer/editor
@@ -63,6 +66,9 @@ ascii_whitespace = "·"
 ascii_other = "°"
 non_ascii = "×"
 ```
+
+## Hexor
+The mascot's name is Hexor! :D He likes eating sand.
 
 ## Feedback
 
