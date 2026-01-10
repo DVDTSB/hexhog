@@ -1,5 +1,5 @@
 
-![hexhog banner](banner.svg)
+![hexhog banner](banner.png)
 
 # hexhog
 
