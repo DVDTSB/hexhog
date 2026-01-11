@@ -1,6 +1,6 @@
-mod change;
-mod events;
+mod app;
+mod window;
 mod render;
-mod state;
-mod utils;
-pub use state::{App, Args};
+mod events;
+pub use app::{App, Args};
+pub use window::Window;

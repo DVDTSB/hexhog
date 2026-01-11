@@ -66,7 +66,7 @@ impl Default for Config {
                 accent: Color::Blue,
                 select: Color::DarkGray,
                 border: Color::White,
-                primary: Color::White,
+                primary: Color::Blue,
                 background: Color::Reset,
             },
             charset: Charset {
