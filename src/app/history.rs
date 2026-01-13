@@ -4,8 +4,8 @@ pub struct History<T> {
 }
 
 pub trait Change<T> {
-    fn apply(&self, data: &mut Vec<T>);
-    fn revert(&self, data: &mut Vec<T>);
+    fn apply(&self, data: &mut T);
+    fn revert(&self, data: &mut T);
 }
 
 impl<T> History<T> {
@@ -22,13 +22,13 @@ impl<T> History<T> {
         self.undo_stack.push(change);
         self.redo_stack.clear();
     }
-    pub fn undo(&mut self, data: &mut Vec<T>) {
+    pub fn undo(&mut self, data: &mut T) {
         if let Some(change) = self.undo_stack.pop() {
             change.revert(data);
             self.redo_stack.push(change);
         }
     }
-    pub fn redo(&mut self, data: &mut Vec<T>) {
+    pub fn redo(&mut self, data: &mut T) {
         if let Some(change) = self.redo_stack.pop() {
             change.apply(data);
             self.undo_stack.push(change);
