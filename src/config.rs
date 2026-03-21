@@ -196,3 +196,59 @@ impl Config {
         Ok(config)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::Color;
+
+    #[test]
+    fn default_does_not_panic() {
+        let config = Config::default();
+        assert_eq!(config.colorscheme.ascii_printable, Color::Blue);
+        assert_eq!(config.charset.null, '.');
+    }
+
+    #[test]
+    fn toml_value_to_color_named() {
+        let val = toml::Value::String("white".to_string());
+        assert_eq!(Config::toml_value_to_color(&val), Ok(Color::White));
+    }
+
+    #[test]
+    fn toml_value_to_color_index() {
+        let val = toml::Value::Integer(196);
+        assert_eq!(Config::toml_value_to_color(&val), Ok(Color::Indexed(196)));
+    }
+
+    #[test]
+    fn toml_value_to_color_rgb() {
+        let val = toml::Value::Array(vec![
+            toml::Value::Integer(255),
+            toml::Value::Integer(0),
+            toml::Value::Integer(128),
+        ]);
+        assert_eq!(
+            Config::toml_value_to_color(&val),
+            Ok(Color::Rgb(255, 0, 128))
+        );
+    }
+
+    #[test]
+    fn toml_value_to_color_invalid_name() {
+        let val = toml::Value::String("not_a_real_color_xyz".to_string());
+        assert!(Config::toml_value_to_color(&val).is_err());
+    }
+
+    #[test]
+    fn toml_value_to_color_index_out_of_range() {
+        let val = toml::Value::Integer(256);
+        assert!(Config::toml_value_to_color(&val).is_err());
+    }
+
+    #[test]
+    fn read_config_missing_file_returns_default() {
+        let result = Config::read_config("/nonexistent/path/hexhog_test_config.toml");
+        assert!(result.is_ok());
+    }
+}
