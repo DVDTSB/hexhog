@@ -112,14 +112,14 @@ impl Config {
     fn set_color_field(table: &Table, field: &str, current: &mut Color) -> Result<(), String> {
         if let Some(value) = table.get(field) {
             let color = Config::toml_value_to_color(value);
-            if color.is_err() {
-                return Err(format!(
-                    "Invalid color for field '{}' - {}",
-                    field,
-                    color.err().unwrap()
-                ));
-            } else {
-                *current = color.unwrap()
+            match color {
+                Ok(color) => *current = color,
+                Err(color_error) => {
+                    return Err(format!(
+                        "Invalid color for field '{}' - {}",
+                        field, color_error
+                    ));
+                }
             }
         }
         Ok(())
@@ -156,41 +156,41 @@ impl Config {
 
         let values = config_file.unwrap().parse::<Table>().unwrap();
 
-        if let Some(colors) = values.get("theme") {
-            if let Some(table) = colors.as_table() {
-                Config::set_color_field(table, "null", &mut config.colorscheme.null)?;
-                Config::set_color_field(
-                    table,
-                    "ascii_printable",
-                    &mut config.colorscheme.ascii_printable,
-                )?;
-                Config::set_color_field(
-                    table,
-                    "ascii_whitespace",
-                    &mut config.colorscheme.ascii_whitespace,
-                )?;
-                Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
-                Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
-                Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
-                Config::set_color_field(table, "select", &mut config.colorscheme.select)?;
-                Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
-                Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
-                Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
-            }
+        if let Some(colors) = values.get("theme")
+            && let Some(table) = colors.as_table()
+        {
+            Config::set_color_field(table, "null", &mut config.colorscheme.null)?;
+            Config::set_color_field(
+                table,
+                "ascii_printable",
+                &mut config.colorscheme.ascii_printable,
+            )?;
+            Config::set_color_field(
+                table,
+                "ascii_whitespace",
+                &mut config.colorscheme.ascii_whitespace,
+            )?;
+            Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
+            Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
+            Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
+            Config::set_color_field(table, "select", &mut config.colorscheme.select)?;
+            Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
+            Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
+            Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
         }
 
-        if let Some(charset) = values.get("charset") {
-            if let Some(table) = charset.as_table() {
-                Config::set_charset_field(table, "null", &mut config.charset.null)?;
-                Config::set_charset_field(
-                    table,
-                    "ascii_whitespace",
-                    &mut config.charset.ascii_whitespace,
-                )?;
-                Config::set_charset_field(table, "ascii_other", &mut config.charset.ascii_other)?;
-                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
-                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
-            }
+        if let Some(charset) = values.get("charset")
+            && let Some(table) = charset.as_table()
+        {
+            Config::set_charset_field(table, "null", &mut config.charset.null)?;
+            Config::set_charset_field(
+                table,
+                "ascii_whitespace",
+                &mut config.charset.ascii_whitespace,
+            )?;
+            Config::set_charset_field(table, "ascii_other", &mut config.charset.ascii_other)?;
+            Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
+            Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
         }
 
         Ok(config)

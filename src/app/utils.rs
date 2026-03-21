@@ -48,7 +48,7 @@ impl App {
     }
     pub fn move_right(&mut self) {
         self.cursor_x += 1;
-        if self.get_idx() >= self.data.len() + 1 {
+        if self.get_idx() > self.data.len() {
             self.cursor_x -= 1;
         }
         if self.cursor_x >= 16 {
