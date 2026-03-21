@@ -112,14 +112,14 @@ impl Config {
     fn set_color_field(table: &Table, field: &str, current: &mut Color) -> Result<(), String> {
         if let Some(value) = table.get(field) {
             let color = Config::toml_value_to_color(value);
-            if color.is_err() {
-                return Err(format!(
-                    "Invalid color for field '{}' - {}",
-                    field,
-                    color.err().unwrap()
-                ));
-            } else {
-                *current = color.unwrap()
+            match color {
+                Ok(color) => *current = color,
+                Err(color_error) => {
+                    return Err(format!(
+                        "Invalid color for field '{}' - {}",
+                        field, color_error
+                    ));
+                }
             }
         }
         Ok(())
@@ -156,43 +156,99 @@ impl Config {
 
         let values = config_file.unwrap().parse::<Table>().unwrap();
 
-        if let Some(colors) = values.get("theme") {
-            if let Some(table) = colors.as_table() {
-                Config::set_color_field(table, "null", &mut config.colorscheme.null)?;
-                Config::set_color_field(
-                    table,
-                    "ascii_printable",
-                    &mut config.colorscheme.ascii_printable,
-                )?;
-                Config::set_color_field(
-                    table,
-                    "ascii_whitespace",
-                    &mut config.colorscheme.ascii_whitespace,
-                )?;
-                Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
-                Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
-                Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
-                Config::set_color_field(table, "select", &mut config.colorscheme.select)?;
-                Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
-                Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
-                Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
-            }
+        if let Some(colors) = values.get("theme")
+            && let Some(table) = colors.as_table()
+        {
+            Config::set_color_field(table, "null", &mut config.colorscheme.null)?;
+            Config::set_color_field(
+                table,
+                "ascii_printable",
+                &mut config.colorscheme.ascii_printable,
+            )?;
+            Config::set_color_field(
+                table,
+                "ascii_whitespace",
+                &mut config.colorscheme.ascii_whitespace,
+            )?;
+            Config::set_color_field(table, "ascii_other", &mut config.colorscheme.ascii_other)?;
+            Config::set_color_field(table, "non_ascii", &mut config.colorscheme.non_ascii)?;
+            Config::set_color_field(table, "accent", &mut config.colorscheme.accent)?;
+            Config::set_color_field(table, "select", &mut config.colorscheme.select)?;
+            Config::set_color_field(table, "primary", &mut config.colorscheme.primary)?;
+            Config::set_color_field(table, "border", &mut config.colorscheme.border)?;
+            Config::set_color_field(table, "background", &mut config.colorscheme.background)?;
         }
 
-        if let Some(charset) = values.get("charset") {
-            if let Some(table) = charset.as_table() {
-                Config::set_charset_field(table, "null", &mut config.charset.null)?;
-                Config::set_charset_field(
-                    table,
-                    "ascii_whitespace",
-                    &mut config.charset.ascii_whitespace,
-                )?;
-                Config::set_charset_field(table, "ascii_other", &mut config.charset.ascii_other)?;
-                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
-                Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
-            }
+        if let Some(charset) = values.get("charset")
+            && let Some(table) = charset.as_table()
+        {
+            Config::set_charset_field(table, "null", &mut config.charset.null)?;
+            Config::set_charset_field(
+                table,
+                "ascii_whitespace",
+                &mut config.charset.ascii_whitespace,
+            )?;
+            Config::set_charset_field(table, "ascii_other", &mut config.charset.ascii_other)?;
+            Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
+            Config::set_charset_field(table, "non_ascii", &mut config.charset.non_ascii)?;
         }
 
         Ok(config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::Color;
+
+    #[test]
+    fn default_does_not_panic() {
+        let config = Config::default();
+        assert_eq!(config.colorscheme.ascii_printable, Color::Blue);
+        assert_eq!(config.charset.null, '.');
+    }
+
+    #[test]
+    fn toml_value_to_color_named() {
+        let val = toml::Value::String("white".to_string());
+        assert_eq!(Config::toml_value_to_color(&val), Ok(Color::White));
+    }
+
+    #[test]
+    fn toml_value_to_color_index() {
+        let val = toml::Value::Integer(196);
+        assert_eq!(Config::toml_value_to_color(&val), Ok(Color::Indexed(196)));
+    }
+
+    #[test]
+    fn toml_value_to_color_rgb() {
+        let val = toml::Value::Array(vec![
+            toml::Value::Integer(255),
+            toml::Value::Integer(0),
+            toml::Value::Integer(128),
+        ]);
+        assert_eq!(
+            Config::toml_value_to_color(&val),
+            Ok(Color::Rgb(255, 0, 128))
+        );
+    }
+
+    #[test]
+    fn toml_value_to_color_invalid_name() {
+        let val = toml::Value::String("not_a_real_color_xyz".to_string());
+        assert!(Config::toml_value_to_color(&val).is_err());
+    }
+
+    #[test]
+    fn toml_value_to_color_index_out_of_range() {
+        let val = toml::Value::Integer(256);
+        assert!(Config::toml_value_to_color(&val).is_err());
+    }
+
+    #[test]
+    fn read_config_missing_file_returns_default() {
+        let result = Config::read_config("/nonexistent/path/hexhog_test_config.toml");
+        assert!(result.is_ok());
     }
 }

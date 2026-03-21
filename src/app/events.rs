@@ -52,7 +52,7 @@ impl App {
                     //since cursor can also be outside data check this lol;
                     if x == y && y == self.data.len() {
                         self.move_left();
-                        return ();
+                        return;
                     }
 
                     let old = self.data[x..(y + 1)].to_vec();
