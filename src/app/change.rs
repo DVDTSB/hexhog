@@ -38,3 +38,90 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::state::AppState;
+    use crate::config::Config;
+
+    fn make_app(data: Vec<u8>) -> App {
+        App {
+            config: Config::default(),
+            file_name: String::new(),
+            data,
+            starting_line: 0,
+            cursor_x: 0,
+            cursor_y: 0,
+            frame_height: 20,
+            running: true,
+            state: AppState::Move,
+            buffer: [' ', ' '],
+            changes: Vec::new(),
+            made_changes: Vec::new(),
+            is_inserting: false,
+            is_selecting: false,
+            selection_start: 0,
+            clipboard: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn do_change_edit_modifies_data() {
+        let mut app = make_app(vec![0x00, 0x01, 0x02]);
+        app.do_change(Change::Edit(1, vec![0x01], vec![0xFF]));
+        assert_eq!(app.data[1], 0xFF);
+        assert_eq!(app.changes.len(), 1);
+    }
+
+    #[test]
+    fn undo_edit_reverts_data() {
+        let mut app = make_app(vec![0x00, 0x01, 0x02]);
+        app.do_change(Change::Edit(1, vec![0x01], vec![0xFF]));
+        app.undo();
+        assert_eq!(app.data[1], 0x01);
+        assert_eq!(app.changes.len(), 0);
+        assert_eq!(app.made_changes.len(), 1);
+    }
+
+    #[test]
+    fn redo_reapplies_edit() {
+        let mut app = make_app(vec![0x00, 0x01, 0x02]);
+        app.do_change(Change::Edit(1, vec![0x01], vec![0xFF]));
+        app.undo();
+        app.redo();
+        assert_eq!(app.data[1], 0xFF);
+    }
+
+    #[test]
+    fn do_change_insert_increases_len() {
+        let mut app = make_app(vec![0x00, 0x02]);
+        app.do_change(Change::Insert(1, vec![0xAB]));
+        assert_eq!(app.data.len(), 3);
+        assert_eq!(app.data[1], 0xAB);
+    }
+
+    #[test]
+    fn undo_insert_removes_bytes() {
+        let mut app = make_app(vec![0x00, 0x02]);
+        app.do_change(Change::Insert(1, vec![0xAB]));
+        app.undo();
+        assert_eq!(app.data, vec![0x00, 0x02]);
+    }
+
+    #[test]
+    fn do_change_delete_decreases_len() {
+        let mut app = make_app(vec![0x00, 0x01, 0x02]);
+        app.do_change(Change::Delete(1, vec![0x01]));
+        assert_eq!(app.data.len(), 2);
+        assert_eq!(app.data[1], 0x02);
+    }
+
+    #[test]
+    fn undo_delete_restores_bytes() {
+        let mut app = make_app(vec![0x00, 0x01, 0x02]);
+        app.do_change(Change::Delete(1, vec![0x01]));
+        app.undo();
+        assert_eq!(app.data, vec![0x00, 0x01, 0x02]);
+    }
+}

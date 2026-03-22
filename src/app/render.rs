@@ -125,7 +125,7 @@ impl App {
                         .fg(self.config.colorscheme.primary)
                         .reversed()
                 } else if pos < self.data.len() {
-                    let byte = Byte::new(self.data[pos as usize]);
+                    let byte = Byte::new(self.data[pos]);
                     let mut style = byte.get_style(&self.config);
                     style = if cursor_here {
                         match self.is_selecting {
@@ -174,7 +174,7 @@ impl App {
                     true => {
                         let (x, y) = self.selection_range();
                         if x <= pos && pos < y {
-                            spacing.bg(self.config.colorscheme.select).into()
+                            spacing.bg(self.config.colorscheme.select)
                         } else {
                             spacing.into()
                         }

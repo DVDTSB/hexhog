@@ -44,3 +44,76 @@ impl Byte {
         config.colorscheme.get_style(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bytetype_null() {
+        assert!(matches!(Byte::new(0).get_bytetype(), ByteType::Null));
+    }
+
+    #[test]
+    fn bytetype_ascii_printable() {
+        assert!(matches!(
+            Byte::new(b'A').get_bytetype(),
+            ByteType::AsciiPrintable
+        ));
+    }
+
+    #[test]
+    fn bytetype_ascii_whitespace() {
+        assert!(matches!(
+            Byte::new(b'\t').get_bytetype(),
+            ByteType::AsciiWhitespace
+        ));
+        assert!(matches!(
+            Byte::new(b' ').get_bytetype(),
+            ByteType::AsciiWhitespace
+        ));
+    }
+
+    #[test]
+    fn bytetype_ascii_other() {
+        // SOH (0x01) is ASCII control but not graphic, not whitespace, not null
+        assert!(matches!(
+            Byte::new(1).get_bytetype(),
+            ByteType::AsciiOther
+        ));
+    }
+
+    #[test]
+    fn bytetype_non_ascii() {
+        assert!(matches!(
+            Byte::new(128).get_bytetype(),
+            ByteType::NonAscii
+        ));
+        assert!(matches!(
+            Byte::new(255).get_bytetype(),
+            ByteType::NonAscii
+        ));
+    }
+
+    #[test]
+    fn get_hex_zero() {
+        assert_eq!(Byte::new(0).get_hex(), "00");
+    }
+
+    #[test]
+    fn get_hex_single_digit() {
+        assert_eq!(Byte::new(10).get_hex(), "0A");
+    }
+
+    #[test]
+    fn get_hex_max() {
+        assert_eq!(Byte::new(255).get_hex(), "FF");
+    }
+
+    #[test]
+    fn value_roundtrip() {
+        assert_eq!(Byte::new(42).value(), 42);
+        assert_eq!(Byte::new(0).value(), 0);
+        assert_eq!(Byte::new(255).value(), 255);
+    }
+}
